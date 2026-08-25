@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  GO_VERSION: '1.26'
+  APP_ID: dev.alplix.lavandegrid
+  BOINC_WIN_URL: https://boinc.berkeley.edu/dl/boinc_8.2.4_windows_x86_64.exe
+  BOINC_MAC_URL: https://boinc.berkeley.edu/dl/boinc_8.2.4_macOSX_universal.dmg
+
+permissions:
+  contents: write
+
+jobs:
+  cross-build:
+    name: Build ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux
+            arches: amd64,arm64
+          - target: windows
+            arches: amd64
+          - target: darwin
+            arches: amd64,arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install fyne-cross
+        run: go install github.com/fyne-io/fyne-cross@latest
+
+      - name: Cross-compile
+        run: fyne-cross ${{ matrix.target }} -arch ${{ matrix.arches }} -app-id ${{ env.APP_ID }}
+
+      - name: Bundle BOINC client (Windows)
+        if: matrix.target == 'windows'
+        run: |
+          mkdir -p fyne-cross/dist/bundled
+          curl -L "$BOINC_WIN_URL" -o fyne-cross/dist/bundled/boinc-installer-windows.exe
+
+      - name: Bundle BOINC client (macOS)
+        if: matrix.target == 'darwin'
+        run: |
+          mkdir -p fyne-cross/dist/bundled
+          curl -L "$BOINC_MAC_URL" -o fyne-cross/dist/bundled/boinc-installer-macos.dmg
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavandegrid-${{ matrix.target }}
+          path: fyne-cross/dist/**
+
+  freebsd-build:
+    name: Build freebsd/amd64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build in FreeBSD VM
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y go pkgconf mesa-libs libX11 libXcursor libXinerama libXi libXrandr xorgproto
+          run: |
+            CGO_ENABLED=1 /usr/local/bin/go build -o lavandegrid-freebsd-amd64 .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lavandegrid-freebsd
+          path: lavandegrid-freebsd-amd64
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [cross-build, freebsd-build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**
+          generate_release_notes: true

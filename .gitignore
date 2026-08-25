@@ -1,0 +1,19 @@
+# Build output
+/bin/
+/dist/
+
+# Go
+*.exe~
+*.test
+*.out
+
+# Local config
+*.local.json
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
