@@ -4,13 +4,25 @@ import (
 	"github.com/alplix/lavandegrid/internal/local"
 )
 
-func startLocalClient() error {
-	info := local.Detect()
-	if !info.Found {
+func getDaemon() *local.Daemon {
+	return local.NewDaemon(local.Detect())
+}
+
+func startLocalDaemon() error {
+	d := getDaemon()
+	if !d.Info.Found {
 		return errNoClient
 	}
-	_, err := local.StartDetached(info.Exe, info.DataDir)
-	return err
+	return local.StartDaemon(d, Version)
+}
+
+func stopLocalDaemon() error {
+	d := getDaemon()
+	return local.StopDaemon(d)
+}
+
+func daemonStatus() local.DaemonStatus {
+	return getDaemon().Status()
 }
 
 type strErr string

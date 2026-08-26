@@ -47,7 +47,7 @@ type Mock struct {
 func NewMock(cfg HostCfg) *Mock {
 	m := &Mock{
 		cfg:     cfg,
-		version: "8.2.4",
+		version: "LavandeGrid/1.0.0",
 		runMode: "auto",
 		netMode: "always",
 		prefs:   map[string]string{},

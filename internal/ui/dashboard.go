@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"sort"
 	"time"
@@ -21,16 +22,18 @@ func init() {
 
 var dashRefs struct {
 	cards  []*widget.Label
+	cardBg []*canvas.Image
 	chart  *canvas.Image
 	feed   *widget.List
 	hostLs *widget.List
 }
 
-func statCard(title string) (fyne.CanvasObject, *widget.Label) {
+func statCard(title string, accent color.NRGBA) (fyne.CanvasObject, *widget.Label) {
 	val := widget.NewLabel("–")
 	val.TextStyle = fyne.TextStyle{Bold: true}
-	card := widget.NewCard("", title, container.NewVBox(val))
-	return card, val
+	valLabel := widget.NewLabel(title)
+	valLabel.TextStyle = fyne.TextStyle{Italic: true}
+	return container.NewVBox(container.NewPadded(container.NewVBox(valLabel, val))), val
 }
 
 type dashHostRow struct {
@@ -40,16 +43,31 @@ type dashHostRow struct {
 
 func buildDashboard(w fyne.Window) fyne.CanvasObject {
 	dashRefs.cards = nil
+	dashRefs.cardBg = nil
+
+	accentColors := []color.NRGBA{
+		{R: 0x6d, G: 0x28, B: 0xd9, A: 0xff},
+		{R: 0x25, G: 0x63, B: 0xeb, A: 0xff},
+		{R: 0xdb, G: 0x27, B: 0x77, A: 0xff},
+		{R: 0x05, G: 0x96, B: 0x69, A: 0xff},
+	}
 	titles := []string{i18n.T("dash.running"), i18n.T("dash.queue"), i18n.T("st.error"), i18n.T("dash.fleetRac")}
 	var cards []fyne.CanvasObject
-	for _, t := range titles {
-		c, lbl := statCard(t)
+	for i, t := range titles {
+		c, lbl := statCard(t, accentColors[i])
 		dashRefs.cards = append(dashRefs.cards, lbl)
-		cards = append(cards, c)
+		cards = append(cards, container.NewStack(
+			c,
+			makeAccentStripe(accentColors[i]),
+		))
 	}
 	stats := container.NewGridWithColumns(4, cards...)
 
-	dashRefs.chart = canvas.NewImageFromImage(renderChart(nil, 900, 220, !fyneApp.Preferences().Bool("light")))
+	dark := !fyneApp.Preferences().Bool("light")
+	baseChart := renderChart(nil, 900, 220, dark)
+	flowers := renderFlower(900, 220, dark)
+	mixImage(baseChart, flowers)
+	dashRefs.chart = canvas.NewImageFromImage(baseChart)
 	dashRefs.chart.FillMode = canvas.ImageFillStretch
 
 	hostsTitle := widget.NewLabelWithStyle(i18n.T("dash.servers"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
@@ -64,9 +82,7 @@ func buildDashboard(w fyne.Window) fyne.CanvasObject {
 
 	dashRefs.hostLs = widget.NewList(
 		func() int { return len(rows()) },
-		func() fyne.CanvasObject {
-			return newDashHostRow()
-		},
+		func() fyne.CanvasObject { return newDashHostRow() },
 		func(i widget.ListItemID, o fyne.CanvasObject) {
 			r := rows()
 			if i < len(r) {
@@ -116,12 +132,20 @@ func buildDashboard(w fyne.Window) fyne.CanvasObject {
 		right,
 	)
 
+	chartCard := widget.NewCard(i18n.T("dash.actT"), "", container.NewStack(dashRefs.chart))
+
 	return container.NewBorder(stats, bottom, nil, nil,
 		container.NewVScroll(container.NewVBox(
-			widget.NewCard(i18n.T("dash.actT"), "", container.NewStack(dashRefs.chart)),
+			container.NewPadded(chartCard),
 			widget.NewLabel(""),
 		)),
 	)
+}
+
+func makeAccentStripe(col color.NRGBA) fyne.CanvasObject {
+	s := canvas.NewRectangle(col)
+	s.Resize(fyne.NewSize(4, 40))
+	return container.NewStack(s)
 }
 
 func refreshDashboard() {
@@ -147,9 +171,12 @@ func refreshDashboard() {
 			dashRefs.cards[i].SetText(v)
 		}
 	}
-	light := fyneApp.Preferences().Bool("light")
-	series := fleetSeries(light)
-	dashRefs.chart.Image = renderChart(series, 900, 220, !light)
+	dark := !fyneApp.Preferences().Bool("light")
+	series := fleetSeries(dark)
+	baseChart := renderChart(series, 900, 220, dark)
+	flowers := renderFlower(900, 220, dark)
+	mixImage(baseChart, flowers)
+	dashRefs.chart.Image = baseChart
 	dashRefs.chart.Refresh()
 
 	if dashRefs.hostLs != nil {
@@ -160,7 +187,7 @@ func refreshDashboard() {
 	}
 }
 
-func fleetSeries(light bool) []chartSeries {
+func fleetSeries(dark bool) []chartSeries {
 	var out []chartSeries
 	for _, h := range mgr.Store.List() {
 		hist := mgr.History(h.ID)
@@ -168,7 +195,7 @@ func fleetSeries(light bool) []chartSeries {
 			continue
 		}
 		col := projColorNRGBA(h.Name)
-		if light {
+		if !dark {
 			col = darken(col)
 		}
 		cs := chartSeries{Label: h.Name, Color: col}
@@ -192,8 +219,6 @@ func darken(c color.NRGBA) color.NRGBA {
 		A: 0xff,
 	}
 }
-
-// ---- host row widget ----
 
 type dashHostItem struct {
 	fyne.Container
@@ -341,4 +366,20 @@ func hue2rgb(p, q, t float64) float64 {
 	}
 }
 
-var _ = time.Now
+func renderDecoratedBg(w, h int, dark bool) image.Image {
+	base := image.NewRGBA(image.Rect(0, 0, w, h))
+	if dark {
+		for i := range base.Pix {
+			base.Pix[i] = 0xff
+		}
+	} else {
+		for i := range base.Pix {
+			base.Pix[i] = 0
+		}
+	}
+	scatter := renderScatter(w, h, 40, lavenderPrimary, dark)
+	mixImage(base, scatter)
+	flowers := renderFlower(w, h, dark)
+	mixImage(base, flowers)
+	return base
+}

@@ -1,12 +1,17 @@
 package ui
 
 import (
+	"fmt"
+	"image/color"
+
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/alplix/lavandegrid/internal/i18n"
+	"github.com/alplix/lavandegrid/internal/local"
 )
 
 func init() {
@@ -66,9 +71,22 @@ func buildSettings(w fyne.Window) fyne.CanvasObject {
 	notifCard := widget.NewCard(i18n.T("set.notifT"), "", notifCheck)
 
 	info := localInfoText()
-	localStart := widget.NewButtonWithIcon(i18n.T("set.startLocal"), theme.MediaPlayIcon(), func() {
+	d := getDaemon()
+	status := d.Status()
+	runningColor := color.NRGBA{R: 0x34, G: 0xd3, B: 0x99, A: 0xff}
+	stoppedColor := color.NRGBA{R: 0xfb, G: 0x71, B: 0x85, A: 0xff}
+	statusLabel := i18n.T("set.stopped")
+	dotColor := stoppedColor
+	if status == local.DaemonRunning {
+		dotColor = runningColor
+		statusLabel = fmt.Sprintf("%s (PID %d)", i18n.T("set.running"), d.PID())
+	}
+	statusDot := canvas.NewText("●", dotColor)
+	statusDot.TextSize = 14
+
+	startBtn := widget.NewButtonWithIcon(i18n.T("set.startLocal"), theme.MediaPlayIcon(), func() {
 		go func() {
-			err := startLocalClient()
+			err := startLocalDaemon()
 			msg := i18n.T("set.localStarted")
 			if err != nil {
 				msg = i18n.T("set.localFailed") + ": " + err.Error()
@@ -76,7 +94,33 @@ func buildSettings(w fyne.Window) fyne.CanvasObject {
 			fyreDo(func() { dialog.NewInformation(i18n.T("nav.hosts"), msg, w).Show() })
 		}()
 	})
-	localCard := widget.NewCard(i18n.T("set.localTitle"), info, localStart)
+	stopBtn := widget.NewButtonWithIcon(i18n.T("set.stopLocal"), theme.MediaStopIcon(), func() {
+		go func() {
+			err := stopLocalDaemon()
+			msg := i18n.T("set.localStopped")
+			if err != nil {
+				msg = i18n.T("set.localFailed") + ": " + err.Error()
+			}
+			fyreDo(func() { dialog.NewInformation(i18n.T("nav.hosts"), msg, w).Show() })
+		}()
+	})
+	startBtn.Disable()
+	stopBtn.Disable()
+	if status == local.DaemonRunning {
+		stopBtn.Enable()
+	} else if status == local.DaemonStopped && d.Info.Found {
+		startBtn.Enable()
+	}
+
+	statusRow := container.NewHBox(statusDot, widget.NewLabel(statusLabel))
+	daemonBtns := container.NewHBox(startBtn, stopBtn)
+
+	verText := ""
+	if status == local.DaemonRunning {
+		verText = fmt.Sprintf("LavandeGrid sends user_agent=LavandeGrid/%s to projects", Version)
+	}
+
+	daemonCard := widget.NewCard(i18n.T("set.localTitle"), info, container.NewVBox(statusRow, daemonBtns, widget.NewLabel(verText)))
 
 	aboutBody := container.NewVBox(
 		widget.NewLabelWithStyle("LavandeGrid v"+Version, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
@@ -90,7 +134,7 @@ func buildSettings(w fyne.Window) fyne.CanvasObject {
 		container.NewPadded(langCard),
 		container.NewPadded(themeCard),
 		container.NewPadded(notifCard),
-		container.NewPadded(localCard),
+		container.NewPadded(daemonCard),
 		container.NewPadded(aboutCard),
 	))
 }

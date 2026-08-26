@@ -1,11 +1,14 @@
 package ui
 
 import (
+	"image/color"
 	"sync"
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/alplix/lavandegrid/internal/app"
 	"github.com/alplix/lavandegrid/internal/i18n"
@@ -15,9 +18,9 @@ import (
 const Version = "1.0.0"
 
 var (
-	mgr     *app.Manager
-	mainWin fyne.Window
-	fyneApp fyne.App
+	mgr        *app.Manager
+	mainWin    fyne.Window
+	fyneApp    fyne.App
 	wantRestart bool
 
 	screenMu   sync.Mutex
@@ -87,6 +90,29 @@ func fyreDo(fn func()) {
 	}
 }
 
+func buildTopBar() fyne.CanvasObject {
+	logoLabel := canvas.NewText("LavandeGrid", color.NRGBA{R: 0xc4, G: 0x95, B: 0xf0, A: 0xff})
+	logoLabel.TextSize = 20
+	logoLabel.TextStyle = fyne.TextStyle{Bold: true}
+
+	verLabel := canvas.NewText("v"+Version, color.NRGBA{R: 0x86, G: 0x78, B: 0xa3, A: 0xff})
+	verLabel.TextSize = 12
+
+	flower1 := canvas.NewText("~", color.NRGBA{R: 0xc4, G: 0x95, B: 0xf0, A: 0x60})
+	flower1.TextSize = 24
+
+	flower2 := canvas.NewText("~", color.NRGBA{R: 0xa7, G: 0x8b, B: 0xfa, A: 0x40})
+	flower2.TextSize = 18
+
+	subtitle := canvas.NewText(i18n.T("page.dash.sub"), color.NRGBA{R: 0x86, G: 0x78, B: 0xa3, A: 0xff})
+	subtitle.TextSize = 11
+
+	left := container.NewHBox(flower1, logoLabel, verLabel)
+	right := container.NewHBox(subtitle, flower2)
+
+	return container.NewBorder(nil, nil, left, right)
+}
+
 func Run(a fyne.App) {
 	fyneApp = a
 	prefs := a.Preferences()
@@ -129,7 +155,21 @@ func Run(a fyne.App) {
 		nav.Add(btn)
 	}
 
-	root := container.NewBorder(nil, nil, container.NewVScroll(nav), nil, content)
+	petalBar := canvas.NewRectangle(color.NRGBA{R: 0x2b, G: 0x20, B: 0x40, A: 0x30})
+	petalBar.Resize(fyne.NewSize(200, 2))
+
+	navWrap := container.NewBorder(nil, nil, nil, nil,
+		container.NewVBox(
+			container.NewPadded(buildTopBar()),
+			petalBar,
+			nav,
+			layout.NewSpacer(),
+			widget.NewLabel(""),
+		),
+	)
+	navScroll := container.NewVScroll(navWrap)
+
+	root := container.NewBorder(nil, nil, navScroll, nil, content)
 	w.SetContent(root)
 
 	go func() {

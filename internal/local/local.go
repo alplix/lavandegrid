@@ -1,9 +1,12 @@
 package local
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
 )
 
 type Info struct {
@@ -14,12 +17,89 @@ type Info struct {
 	Hint    string
 }
 
-func exeDir() string {
-	exe, err := os.Executable()
-	if err != nil {
-		return ""
+type DaemonStatus int
+
+const (
+	DaemonStopped DaemonStatus = iota
+	DaemonRunning
+	DaemonUnknown
+)
+
+func (s DaemonStatus) String() string {
+	switch s {
+	case DaemonRunning:
+		return "running"
+	case DaemonStopped:
+		return "stopped"
+	default:
+		return "unknown"
 	}
-	return filepath.Dir(exe)
+}
+
+type Daemon struct {
+	Info    Info
+	PIDFile string
+	Config  string
+}
+
+func NewDaemon(info Info) *Daemon {
+	d := &Daemon{Info: info}
+	if info.DataDir != "" {
+		d.PIDFile = filepath.Join(info.DataDir, "boinc.pid")
+		d.Config = filepath.Join(info.DataDir, "cc_config.xml")
+	}
+	return d
+}
+
+func (d *Daemon) Status() DaemonStatus {
+	if d.PIDFile == "" {
+		return DaemonUnknown
+	}
+	data, err := os.ReadFile(d.PIDFile)
+	if err != nil {
+		return DaemonStopped
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return DaemonStopped
+	}
+	return statusByPID(pid)
+}
+
+func (d *Daemon) PID() int {
+	if d.PIDFile == "" {
+		return 0
+	}
+	data, err := os.ReadFile(d.PIDFile)
+	if err != nil {
+		return 0
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return 0
+	}
+	return pid
+}
+
+func (d *Daemon) WriteConfig(version string) error {
+	if d.Config == "" {
+		return nil
+	}
+	dir := filepath.Dir(d.Config)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	userAgent := fmt.Sprintf("LavandeGrid/%s", version)
+	xml := "<cc_config>\n" +
+		"  <log_flags/>\n" +
+		"  <dont_contact_ref_site/>\n" +
+		"  <user_agent>" + userAgent + "</user_agent>\n" +
+		"  <http_transfer_timeout>30</http_transfer_timeout>\n" +
+		"  <http_servers_busy_timeout>30</http_servers_busy_timeout>\n" +
+		"  <max_app_clients>64</max_app_clients>\n" +
+		"  <allow_remote_gui_rpc/>\n" +
+		"</cc_config>\n"
+	return os.WriteFile(d.Config, []byte(xml), 0o644)
 }
 
 func Detect() Info {
@@ -31,7 +111,7 @@ func Detect() Info {
 			filepath.Join(exeDir(), "boinc.exe"),
 			`C:\Program Files\BOINC\boinc.exe`,
 		}
-		dataDir = os.Getenv("ProgramData") + `\BOINC`
+		dataDir = os.Getenv("ProgramData") + "/BOINC"
 	case "darwin":
 		candidates = []string{
 			filepath.Join(exeDir(), "boinc"),
@@ -64,7 +144,15 @@ func Detect() Info {
 		}
 	}
 	return Info{
-		Hint: "Install the BOINC client, or connect to remote hosts from Servers.",
+		Hint:    "Install the BOINC client, or connect to remote hosts from Servers.",
 		DataDir: dataDir,
 	}
+}
+
+func exeDir() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	return filepath.Dir(exe)
 }

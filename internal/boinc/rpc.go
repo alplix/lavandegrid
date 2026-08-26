@@ -136,7 +136,7 @@ func (c *Client) handshake(conn net.Conn) error {
 			return rpcErr("password rejected - check gui_rpc_auth.cfg on the client")
 		}
 	}
-	frame, err := c.roundTrip(conn, "<exchange_versions/>")
+	frame, err := c.roundTrip(conn, "<exchange_versions>\n  <major>1</major>\n  <minor>0</minor>\n  <release>0</release>\n</exchange_versions>")
 	if err == nil {
 		v, perr := ParseVersions(frame)
 		if perr == nil {
