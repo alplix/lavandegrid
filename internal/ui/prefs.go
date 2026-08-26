@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	registerScreen("Preferences", theme.SettingsIcon(), buildPrefs, refreshPrefs)
+	registerScreen("nav.prefs", theme.SettingsIcon(), buildPrefs, refreshPrefs)
 }
 
 var prefFields = []string{

@@ -6,6 +6,12 @@ import (
 )
 
 func main() {
-	a := app.NewWithID("dev.alplix.lavandegrid")
-	ui.Run(a)
+	for {
+		a := app.NewWithID("dev.alplix.lavandegrid")
+		ui.Run(a)
+		if ui.NeedsRestart() {
+			continue
+		}
+		return
+	}
 }

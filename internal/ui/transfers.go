@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	registerScreen("Transfers", theme.DownloadIcon(), buildTransfers, refreshTransfers)
+	registerScreen("nav.transfers", theme.DownloadIcon(), buildTransfers, refreshTransfers)
 }
 
 var xf struct {

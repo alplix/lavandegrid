@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	registerScreen("Statistics", theme.MediaPhotoIcon(), buildStats, refreshStats)
+	registerScreen("nav.stats", theme.MediaPhotoIcon(), buildStats, refreshStats)
 }
 
 var stv struct {

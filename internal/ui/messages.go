@@ -9,10 +9,12 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+
+	"github.com/alplix/lavandegrid/internal/i18n"
 )
 
 func init() {
-	registerScreen("Messages", theme.MailComposeIcon(), buildMessages, refreshMessages)
+	registerScreen("nav.messages", theme.MailComposeIcon(), buildMessages, refreshMessages)
 }
 
 var mv struct {
@@ -36,7 +38,7 @@ type msgRow struct {
 
 func buildMessages(w fyne.Window) fyne.CanvasObject {
 	mv.search = widget.NewEntry()
-	mv.search.PlaceHolder = "Filter messages…"
+	mv.search.PlaceHolder = i18n.T("msg.searchPh")
 	mv.search.OnChanged = func(string) { refreshMessages() }
 
 	mv.sev = widget.NewSelect([]string{"All", "Info", "Warnings", "Errors"}, func(string) { refreshMessages() })

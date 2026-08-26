@@ -12,10 +12,11 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/alplix/lavandegrid/internal/app"
+	"github.com/alplix/lavandegrid/internal/i18n"
 )
 
 func init() {
-	registerScreen("Dashboard", theme.HomeIcon(), buildDashboard, refreshDashboard)
+	registerScreen("nav.dash", theme.HomeIcon(), buildDashboard, refreshDashboard)
 }
 
 var dashRefs struct {
@@ -39,7 +40,7 @@ type dashHostRow struct {
 
 func buildDashboard(w fyne.Window) fyne.CanvasObject {
 	dashRefs.cards = nil
-	titles := []string{"Running tasks", "Queued", "Errors", "Fleet RAC"}
+	titles := []string{i18n.T("dash.running"), i18n.T("dash.queue"), i18n.T("st.error"), i18n.T("dash.fleetRac")}
 	var cards []fyne.CanvasObject
 	for _, t := range titles {
 		c, lbl := statCard(t)
@@ -51,7 +52,7 @@ func buildDashboard(w fyne.Window) fyne.CanvasObject {
 	dashRefs.chart = canvas.NewImageFromImage(renderChart(nil, 900, 220, !fyneApp.Preferences().Bool("light")))
 	dashRefs.chart.FillMode = canvas.ImageFillStretch
 
-	hostsTitle := widget.NewLabelWithStyle("Servers", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	hostsTitle := widget.NewLabelWithStyle(i18n.T("dash.servers"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
 	rows := func() []dashHostRow {
 		var out []dashHostRow
@@ -74,7 +75,7 @@ func buildDashboard(w fyne.Window) fyne.CanvasObject {
 		},
 	)
 
-	feedTitle := widget.NewLabelWithStyle("Recent activity", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	feedTitle := widget.NewLabelWithStyle(i18n.T("dash.recent"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	msgRows := func() []app.MsgLine {
 		var all []app.MsgLine
 		for _, s := range mgr.AllSnaps() {
@@ -117,7 +118,7 @@ func buildDashboard(w fyne.Window) fyne.CanvasObject {
 
 	return container.NewBorder(stats, bottom, nil, nil,
 		container.NewVScroll(container.NewVBox(
-			widget.NewCard("Fleet activity · last hour", "", container.NewStack(dashRefs.chart)),
+			widget.NewCard(i18n.T("dash.actT"), "", container.NewStack(dashRefs.chart)),
 			widget.NewLabel(""),
 		)),
 	)

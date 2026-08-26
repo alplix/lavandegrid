@@ -12,10 +12,11 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/alplix/lavandegrid/internal/app"
+	"github.com/alplix/lavandegrid/internal/i18n"
 )
 
 func init() {
-	registerScreen("Tasks", theme.ListIcon(), buildTasks, refreshTasks)
+	registerScreen("nav.tasks", theme.ListIcon(), buildTasks, refreshTasks)
 }
 
 var tv struct {
@@ -42,7 +43,7 @@ const stateAll = "All"
 func buildTasks(w fyne.Window) fyne.CanvasObject {
 	tv.sel = map[string]bool{}
 	tv.search = widget.NewEntry()
-	tv.search.PlaceHolder = "Filter by name or project…"
+	tv.search.PlaceHolder = i18n.T("tasks.searchPh")
 	tv.search.OnChanged = func(string) { refreshTasks() }
 
 	states := []string{stateAll, "Running", "Paused", "Queued", "Ready", "Errors"}
@@ -126,7 +127,7 @@ func runBulk(op string) {
 
 func updateTaskUI() {
 	sel := len(tv.sel)
-	tv.count.SetText(fmt.Sprintf("%d tasks · %d selected", len(tv.rows), sel))
+	tv.count.SetText(fmt.Sprintf("%s · %s", fmt.Sprintf(i18n.T("tasks.count"), len(tv.rows)), fmt.Sprintf(i18n.T("tasks.selected"), sel)))
 	setBulkEnabled(sel > 0)
 	if tv.list != nil {
 		tv.list.Refresh()

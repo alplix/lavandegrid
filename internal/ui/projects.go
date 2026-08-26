@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	registerScreen("Projects", theme.StorageIcon(), buildProjects, refreshProjects)
+	registerScreen("nav.projects", theme.StorageIcon(), buildProjects, refreshProjects)
 }
 
 var pv struct {

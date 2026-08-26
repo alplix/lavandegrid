@@ -6,10 +6,11 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/alplix/lavandegrid/internal/app"
+	"github.com/alplix/lavandegrid/internal/i18n"
 )
 
 func init() {
-	registerScreen("Servers", theme.ComputerIcon(), buildServers, refreshServers)
+	registerScreen("nav.hosts", theme.ComputerIcon(), buildServers, refreshServers)
 }
 
 var sv struct {
@@ -23,7 +24,7 @@ type serverRow struct {
 }
 
 func buildServers(w fyne.Window) fyne.CanvasObject {
-	addBtn := widget.NewButtonWithIcon("Add server", theme.ContentAddIcon(), func() {
+	addBtn := widget.NewButtonWithIcon(i18n.T("hosts.add"), theme.ContentAddIcon(), func() {
 		showHostDialog(w, app.HostCfg{}, func(nc app.HostCfg) {
 			saved := mgr.Store.Upsert(nc)
 			_ = mgr.Store.Save()

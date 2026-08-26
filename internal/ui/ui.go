@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 	"github.com/alplix/lavandegrid/internal/app"
+	"github.com/alplix/lavandegrid/internal/i18n"
 	"github.com/alplix/lavandegrid/internal/local"
 )
 
@@ -17,10 +18,20 @@ var (
 	mgr     *app.Manager
 	mainWin fyne.Window
 	fyneApp fyne.App
+	wantRestart bool
 
 	screenMu   sync.Mutex
 	curRefresh func()
+
+	screenDefs []screenDef
 )
+
+type screenDef struct {
+	i18nKey string
+	icon    fyne.Resource
+	build   func(fyne.Window) fyne.CanvasObject
+	refresh func()
+}
 
 func setRefresh(fn func()) {
 	screenMu.Lock()
@@ -41,16 +52,25 @@ func fireRefresh() {
 }
 
 type navItem struct {
-	label   string
+	i18nKey string
 	icon    fyne.Resource
 	build   func(fyne.Window) fyne.CanvasObject
 	refresh func()
 }
 
+func (n navItem) label() string { return i18n.T(n.i18nKey) }
+
 var navItems []navItem
 
-func registerScreen(label string, icon fyne.Resource, build func(fyne.Window) fyne.CanvasObject, refresh func()) {
-	navItems = append(navItems, navItem{label: label, icon: icon, build: build, refresh: refresh})
+func registerScreen(i18nKey string, icon fyne.Resource, build func(fyne.Window) fyne.CanvasObject, refresh func()) {
+	screenDefs = append(screenDefs, screenDef{i18nKey: i18nKey, icon: icon, build: build, refresh: refresh})
+}
+
+func rebuildNav() {
+	navItems = navItems[:0]
+	for _, d := range screenDefs {
+		navItems = append(navItems, navItem{i18nKey: d.i18nKey, icon: d.icon, build: d.build, refresh: d.refresh})
+	}
 }
 
 var uiQueue chan func()
@@ -69,19 +89,26 @@ func fyreDo(fn func()) {
 
 func Run(a fyne.App) {
 	fyneApp = a
-	light := a.Preferences().Bool("light")
+	prefs := a.Preferences()
+	i18n.RegisterPrefs(func() string { return prefs.String("lang") }, func(s string) { prefs.SetString("lang", s) })
+	i18n.Init()
+	light := prefs.Bool("light")
 	ApplyTheme(a, light)
-	notifsOn := a.Preferences().Bool("notifications")
+	notifsOn := prefs.Bool("notifications")
 
-	mgr = app.NewManager()
-	mgr.OnNotice(func(n app.Notice) {
-		if notifsOn {
-			a.SendNotification(&fyne.Notification{Title: n.Title, Content: n.Body})
-		}
-	})
-	mgr.Start()
+	if mgr == nil {
+		mgr = app.NewManager()
+		mgr.OnNotice(func(n app.Notice) {
+			if notifsOn {
+				a.SendNotification(&fyne.Notification{Title: n.Title, Content: n.Body})
+			}
+		})
+		mgr.Start()
+	}
 
-	w := a.NewWindow("LavandeGrid v" + Version)
+	rebuildNav()
+
+	w := a.NewWindow(i18n.T("app.name") + " v" + Version)
 	w.Resize(fyne.NewSize(1200, 780))
 	mainWin = w
 
@@ -90,7 +117,7 @@ func Run(a fyne.App) {
 
 	for _, it := range navItems {
 		item := it
-		btn := widget.NewButtonWithIcon(item.label, item.icon, nil)
+		btn := widget.NewButtonWithIcon(item.label(), item.icon, nil)
 		btn.Alignment = widget.ButtonAlignLeading
 		btn.OnTapped = func() {
 			setRefresh(item.refresh)
@@ -113,15 +140,17 @@ func Run(a fyne.App) {
 		}
 	}()
 
-	uiQueue = make(chan func(), 64)
-	go func() {
-		for fn := range uiQueue {
-			func() {
-				defer func() { recover() }()
-				fn()
-			}()
-		}
-	}()
+	if uiQueue == nil {
+		uiQueue = make(chan func(), 64)
+		go func() {
+			for fn := range uiQueue {
+				func() {
+					defer func() { recover() }()
+					fn()
+				}()
+			}
+		}()
+	}
 
 	if len(nav.Objects) > 0 {
 		if b, ok := nav.Objects[0].(*widget.Button); ok {
@@ -131,6 +160,17 @@ func Run(a fyne.App) {
 
 	w.ShowAndRun()
 }
+
+func RestartWindow() {
+	wantRestart = true
+	if mainWin != nil {
+		w := mainWin
+		mainWin = nil
+		w.Close()
+	}
+}
+
+func NeedsRestart() bool { return wantRestart }
 
 func highlightNav(nav *fyne.Container, active *widget.Button) {
 	for _, obj := range nav.Objects {
@@ -149,9 +189,9 @@ func localInfoText() string {
 	info := local.Detect()
 	if info.Found {
 		if info.Bundled {
-			return "Bundled BOINC client found:\n" + info.Exe
+			return i18n.T("local.bundled") + ":\n" + info.Exe
 		}
-		return "System BOINC client found:\n" + info.Exe
+		return i18n.T("local.system") + ":\n" + info.Exe
 	}
-	return "No local BOINC client detected.\n" + info.Hint
+	return i18n.T("local.none") + "\n" + info.Hint
 }
