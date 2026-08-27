@@ -26,18 +26,18 @@ func RegisterPrefs(get func() string, set func(string)) {
 }
 
 func Init() {
-	for _, l := range allLangs {
-		cur = l
-		break
-	}
 	curCode = "en"
 	if prefGetter != nil {
 		if c := prefGetter(); c != "" {
 			if l, ok := allLangs[c]; ok {
 				cur = l
 				curCode = c
+				return
 			}
 		}
+	}
+	if l, ok := allLangs["en"]; ok {
+		cur = l
 	}
 }
 

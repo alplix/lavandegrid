@@ -458,6 +458,23 @@ type StatPoint struct {
 	UserCredit float64
 }
 
+type XferPoint struct {
+	When int64
+	Up   float64
+	Down float64
+}
+
+type DiskProject struct {
+	URL       string
+	DiskUsage int64
+}
+
+type DiskInfo struct {
+	Total    int64
+	Free     int64
+	Projects []DiskProject
+}
+
 const statLayout = "20060102"
 
 func (m *Manager) Stats(hostID string) ([]StatSeries, error) {
@@ -509,34 +526,66 @@ func (m *Manager) Stats(hostID string) ([]StatSeries, error) {
 	return out, nil
 }
 
-func (m *Manager) XferHistory(hostID string) ([]boinc.DailyXfer, error) {
+func (m *Manager) XferHistory(hostID string) ([]XferPoint, error) {
 	cfg, ok := m.Store.Get(hostID)
 	if !ok {
 		return nil, fmt.Errorf("host not found")
 	}
+	var dxs []boinc.DailyXfer
+	var err error
 	if cfg.Demo {
-		return m.mockFor(cfg).XferHistory(), nil
+		dxs = m.mockFor(cfg).XferHistory()
+	} else {
+		c, cerr := m.clientFor(cfg)
+		if cerr != nil {
+			return nil, cerr
+		}
+		dxs, err = c.GetDailyXferHistory()
+		c.Close()
 	}
-	c, err := m.clientFor(cfg)
 	if err != nil {
 		return nil, err
 	}
-	defer c.Close()
-	return c.GetDailyXferHistory()
+	out := make([]XferPoint, 0, len(dxs))
+	for _, d := range dxs {
+		out = append(out, XferPoint{
+			When: d.When.I64(),
+			Up:   d.Up.F(),
+			Down: d.Down.F(),
+		})
+	}
+	return out, nil
 }
 
-func (m *Manager) DiskUsage(hostID string) (*boinc.DiskUsage, error) {
+func (m *Manager) DiskUsage(hostID string) (*DiskInfo, error) {
 	cfg, ok := m.Store.Get(hostID)
 	if !ok {
 		return nil, fmt.Errorf("host not found")
 	}
+	var du *boinc.DiskUsage
+	var err error
 	if cfg.Demo {
-		return m.mockFor(cfg).DiskUsage(), nil
+		du = m.mockFor(cfg).DiskUsage()
+	} else {
+		c, cerr := m.clientFor(cfg)
+		if cerr != nil {
+			return nil, cerr
+		}
+		du, err = c.GetDiskUsage()
+		c.Close()
 	}
-	c, err := m.clientFor(cfg)
 	if err != nil {
 		return nil, err
 	}
-	defer c.Close()
-	return c.GetDiskUsage()
+	di := &DiskInfo{
+		Total: du.DTotal.I64(),
+		Free:  du.DFree.I64(),
+	}
+	for _, p := range du.Projects {
+		di.Projects = append(di.Projects, DiskProject{
+			URL:       p.MasterURL,
+			DiskUsage: p.DiskUsage.I64(),
+		})
+	}
+	return di, nil
 }

@@ -98,6 +98,9 @@ func (d *Daemon) WriteConfig(version string) error {
 		"  <http_servers_busy_timeout>30</http_servers_busy_timeout>\n" +
 		"  <max_app_clients>64</max_app_clients>\n" +
 		"  <allow_remote_gui_rpc/>\n" +
+		"  <use_all_gpus/>\n" +
+		"  <report_results_early/>\n" +
+		"  <gpu_exclusive/>\n" +
 		"</cc_config>\n"
 	return os.WriteFile(d.Config, []byte(xml), 0o644)
 }
@@ -144,9 +147,23 @@ func Detect() Info {
 		}
 	}
 	return Info{
-		Hint:    "Install the BOINC client, or connect to remote hosts from Servers.",
+		Hint:    "Install the Camellia client, or connect to remote hosts from Servers.",
 		DataDir: dataDir,
 	}
+}
+
+func ReadPassword(dataDir string) string {
+	if dataDir == "" {
+		return ""
+	}
+	p := filepath.Join(dataDir, "gui_rpc_auth.cfg")
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return ""
+	}
+	s := string(data)
+	s = strings.TrimSpace(s)
+	return s
 }
 
 func exeDir() string {
