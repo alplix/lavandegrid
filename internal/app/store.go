@@ -48,8 +48,15 @@ func (s *Store) Save() error {
 	if err != nil {
 		return err
 	}
-	_ = os.MkdirAll(filepath.Dir(s.path), 0o755)
-	return os.WriteFile(s.path, data, 0o600)
+	dir := filepath.Dir(s.path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	tmp := s.path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, s.path)
 }
 
 func (s *Store) List() []HostCfg {

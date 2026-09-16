@@ -1,8 +1,8 @@
 export namespace app {
 	
 	export class DiskProject {
-	    URL: string;
-	    DiskUsage: number;
+	    url: string;
+	    diskUsage: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new DiskProject(source);
@@ -10,14 +10,14 @@ export namespace app {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.URL = source["URL"];
-	        this.DiskUsage = source["DiskUsage"];
+	        this.url = source["url"];
+	        this.diskUsage = source["diskUsage"];
 	    }
 	}
 	export class DiskInfo {
-	    Total: number;
-	    Free: number;
-	    Projects: DiskProject[];
+	    total: number;
+	    free: number;
+	    projects: DiskProject[];
 	
 	    static createFrom(source: any = {}) {
 	        return new DiskInfo(source);
@@ -25,9 +25,9 @@ export namespace app {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Total = source["Total"];
-	        this.Free = source["Free"];
-	        this.Projects = this.convertValues(source["Projects"], DiskProject);
+	        this.total = source["total"];
+	        this.free = source["free"];
+	        this.projects = this.convertValues(source["projects"], DiskProject);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -50,12 +50,12 @@ export namespace app {
 	}
 	
 	export class GPU {
-	    Vendor: string;
-	    Count: number;
-	    Names: string[];
-	    Driver: string;
-	    Cuda: string;
-	    VRAM: number;
+	    vendor: string;
+	    count: number;
+	    names: string[];
+	    driver: string;
+	    cuda: string;
+	    vram: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new GPU(source);
@@ -63,17 +63,17 @@ export namespace app {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Vendor = source["Vendor"];
-	        this.Count = source["Count"];
-	        this.Names = source["Names"];
-	        this.Driver = source["Driver"];
-	        this.Cuda = source["Cuda"];
-	        this.VRAM = source["VRAM"];
+	        this.vendor = source["vendor"];
+	        this.count = source["count"];
+	        this.names = source["names"];
+	        this.driver = source["driver"];
+	        this.cuda = source["cuda"];
+	        this.vram = source["vram"];
 	    }
 	}
 	export class HistPoint {
-	    T: time.Time;
-	    Running: number;
+	    t: time.Time;
+	    running: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new HistPoint(source);
@@ -81,8 +81,8 @@ export namespace app {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.T = this.convertValues(source["T"], time.Time);
-	        this.Running = source["Running"];
+	        this.t = this.convertValues(source["t"], time.Time);
+	        this.running = source["running"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -104,16 +104,16 @@ export namespace app {
 		}
 	}
 	export class HostSpec {
-	    OS: string;
-	    OSVersion: string;
-	    CPU: string;
-	    Cores: number;
-	    Flops: number;
-	    Memory: number;
-	    DiskFree: number;
-	    DiskTotal: number;
-	    CPID: string;
-	    GPUs: GPU[];
+	    os: string;
+	    osVersion: string;
+	    cpu: string;
+	    cores: number;
+	    flops: number;
+	    memory: number;
+	    diskFree: number;
+	    diskTotal: number;
+	    cpid: string;
+	    gpus: GPU[];
 	
 	    static createFrom(source: any = {}) {
 	        return new HostSpec(source);
@@ -121,16 +121,16 @@ export namespace app {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.OS = source["OS"];
-	        this.OSVersion = source["OSVersion"];
-	        this.CPU = source["CPU"];
-	        this.Cores = source["Cores"];
-	        this.Flops = source["Flops"];
-	        this.Memory = source["Memory"];
-	        this.DiskFree = source["DiskFree"];
-	        this.DiskTotal = source["DiskTotal"];
-	        this.CPID = source["CPID"];
-	        this.GPUs = this.convertValues(source["GPUs"], GPU);
+	        this.os = source["os"];
+	        this.osVersion = source["osVersion"];
+	        this.cpu = source["cpu"];
+	        this.cores = source["cores"];
+	        this.flops = source["flops"];
+	        this.memory = source["memory"];
+	        this.diskFree = source["diskFree"];
+	        this.diskTotal = source["diskTotal"];
+	        this.cpid = source["cpid"];
+	        this.gpus = this.convertValues(source["gpus"], GPU);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -151,59 +151,41 @@ export namespace app {
 		    return a;
 		}
 	}
-export class MsgLine {
-	    Seq: number;
-	    Pri: number;
-	    Time: number;
-	    Body: string;
-	    Project: string;
-
+	export class MsgLine {
+	    seq: number;
+	    pri: number;
+	    time: number;
+	    body: string;
+	    project: string;
+	
 	    static createFrom(source: any = {}) {
 	        return new MsgLine(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Seq = source["Seq"];
-	        this.Pri = source["Pri"];
-	        this.Time = source["Time"];
-	        this.Body = source["Body"];
-	        this.Project = source["Project"];
+	        this.seq = source["seq"];
+	        this.pri = source["pri"];
+	        this.time = source["time"];
+	        this.body = source["body"];
+	        this.project = source["project"];
 	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	export class ProjectInfo {
-	    Name: string;
-	    URL: string;
-	    Venue: string;
-	    UserName: string;
-	    TeamName: string;
-	    UserCredit: number;
-	    RAC: number;
-	    HostCredit: number;
-	    HostRAC: number;
-	    Share: number;
-	    Suspended: boolean;
-	    NoMoreWork: boolean;
-	    Pending: boolean;
-	    Ended: boolean;
+	    name: string;
+	    url: string;
+	    venue: string;
+	    userName: string;
+	    teamName: string;
+	    userCredit: number;
+	    rac: number;
+	    hostCredit: number;
+	    hostRac: number;
+	    share: number;
+	    suspended: boolean;
+	    noMoreWork: boolean;
+	    pending: boolean;
+	    ended: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProjectInfo(source);
@@ -211,32 +193,32 @@ export class MsgLine {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Name = source["Name"];
-	        this.URL = source["URL"];
-	        this.Venue = source["Venue"];
-	        this.UserName = source["UserName"];
-	        this.TeamName = source["TeamName"];
-	        this.UserCredit = source["UserCredit"];
-	        this.RAC = source["RAC"];
-	        this.HostCredit = source["HostCredit"];
-	        this.HostRAC = source["HostRAC"];
-	        this.Share = source["Share"];
-	        this.Suspended = source["Suspended"];
-	        this.NoMoreWork = source["NoMoreWork"];
-	        this.Pending = source["Pending"];
-	        this.Ended = source["Ended"];
+	        this.name = source["name"];
+	        this.url = source["url"];
+	        this.venue = source["venue"];
+	        this.userName = source["userName"];
+	        this.teamName = source["teamName"];
+	        this.userCredit = source["userCredit"];
+	        this.rac = source["rac"];
+	        this.hostCredit = source["hostCredit"];
+	        this.hostRac = source["hostRac"];
+	        this.share = source["share"];
+	        this.suspended = source["suspended"];
+	        this.noMoreWork = source["noMoreWork"];
+	        this.pending = source["pending"];
+	        this.ended = source["ended"];
 	    }
 	}
 	export class Totals {
-	    Running: number;
-	    Paused: number;
-	    Queued: number;
-	    Errors: number;
-	    Downloads: number;
-	    Uploads: number;
-	    Memory: number;
-	    Credit: number;
-	    RAC: number;
+	    running: number;
+	    paused: number;
+	    queued: number;
+	    errors: number;
+	    downloads: number;
+	    uploads: number;
+	    memory: number;
+	    credit: number;
+	    rac: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new Totals(source);
@@ -244,27 +226,27 @@ export class MsgLine {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Running = source["Running"];
-	        this.Paused = source["Paused"];
-	        this.Queued = source["Queued"];
-	        this.Errors = source["Errors"];
-	        this.Downloads = source["Downloads"];
-	        this.Uploads = source["Uploads"];
-	        this.Memory = source["Memory"];
-	        this.Credit = source["Credit"];
-	        this.RAC = source["RAC"];
+	        this.running = source["running"];
+	        this.paused = source["paused"];
+	        this.queued = source["queued"];
+	        this.errors = source["errors"];
+	        this.downloads = source["downloads"];
+	        this.uploads = source["uploads"];
+	        this.memory = source["memory"];
+	        this.credit = source["credit"];
+	        this.rac = source["rac"];
 	    }
 	}
 	export class Transfer {
-	    Name: string;
-	    URL: string;
-	    ProjectName: string;
-	    Upload: boolean;
-	    Total: number;
-	    Done: number;
-	    Progress: number;
-	    Paused: boolean;
-	    Finished: boolean;
+	    name: string;
+	    url: string;
+	    projectName: string;
+	    upload: boolean;
+	    total: number;
+	    done: number;
+	    progress: number;
+	    paused: boolean;
+	    finished: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Transfer(source);
@@ -272,37 +254,37 @@ export class MsgLine {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Name = source["Name"];
-	        this.URL = source["URL"];
-	        this.ProjectName = source["ProjectName"];
-	        this.Upload = source["Upload"];
-	        this.Total = source["Total"];
-	        this.Done = source["Done"];
-	        this.Progress = source["Progress"];
-	        this.Paused = source["Paused"];
-	        this.Finished = source["Finished"];
+	        this.name = source["name"];
+	        this.url = source["url"];
+	        this.projectName = source["projectName"];
+	        this.upload = source["upload"];
+	        this.total = source["total"];
+	        this.done = source["done"];
+	        this.progress = source["progress"];
+	        this.paused = source["paused"];
+	        this.finished = source["finished"];
 	    }
 	}
 	export class Task {
-	    Name: string;
-	    Wu: string;
-	    URL: string;
-	    ProjectName: string;
-	    Status: string;
-	    Progress: number;
-	    Elapsed: number;
-	    CPUTime: number;
-	    ETA: number;
-	    Deadline: number;
-	    CPTime: number;
-	    Exit: number;
-	    Mem: number;
-	    Resources: string;
-	    Slot: number;
-	    AppVersion: string;
-	    Active: boolean;
-	    Suspended: boolean;
-	    Ready: boolean;
+	    name: string;
+	    wu: string;
+	    url: string;
+	    projectName: string;
+	    status: string;
+	    progress: number;
+	    elapsed: number;
+	    cpuTime: number;
+	    eta: number;
+	    deadline: number;
+	    cpTime: number;
+	    exit: number;
+	    mem: number;
+	    resources: string;
+	    slot: number;
+	    appVersion: string;
+	    active: boolean;
+	    suspended: boolean;
+	    ready: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Task(source);
@@ -310,42 +292,42 @@ export class MsgLine {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Name = source["Name"];
-	        this.Wu = source["Wu"];
-	        this.URL = source["URL"];
-	        this.ProjectName = source["ProjectName"];
-	        this.Status = source["Status"];
-	        this.Progress = source["Progress"];
-	        this.Elapsed = source["Elapsed"];
-	        this.CPUTime = source["CPUTime"];
-	        this.ETA = source["ETA"];
-	        this.Deadline = source["Deadline"];
-	        this.CPTime = source["CPTime"];
-	        this.Exit = source["Exit"];
-	        this.Mem = source["Mem"];
-	        this.Resources = source["Resources"];
-	        this.Slot = source["Slot"];
-	        this.AppVersion = source["AppVersion"];
-	        this.Active = source["Active"];
-	        this.Suspended = source["Suspended"];
-	        this.Ready = source["Ready"];
+	        this.name = source["name"];
+	        this.wu = source["wu"];
+	        this.url = source["url"];
+	        this.projectName = source["projectName"];
+	        this.status = source["status"];
+	        this.progress = source["progress"];
+	        this.elapsed = source["elapsed"];
+	        this.cpuTime = source["cpuTime"];
+	        this.eta = source["eta"];
+	        this.deadline = source["deadline"];
+	        this.cpTime = source["cpTime"];
+	        this.exit = source["exit"];
+	        this.mem = source["mem"];
+	        this.resources = source["resources"];
+	        this.slot = source["slot"];
+	        this.appVersion = source["appVersion"];
+	        this.active = source["active"];
+	        this.suspended = source["suspended"];
+	        this.ready = source["ready"];
 	    }
 	}
 	export class Snapshot {
-	    HostID: string;
-	    Demo: boolean;
-	    Online: boolean;
-	    Error: string;
-	    Version: string;
-	    TS: time.Time;
-	    HostInfo: HostSpec;
-	    Projects: ProjectInfo[];
-	    Tasks: Task[];
-	    Transfers: Transfer[];
-	    Messages: MsgLine[];
-	    Totals: Totals;
-	    TaskMode: string;
-	    NetMode: string;
+	    hostId: string;
+	    demo: boolean;
+	    online: boolean;
+	    error: string;
+	    version: string;
+	    ts: time.Time;
+	    hostInfo: HostSpec;
+	    projects: ProjectInfo[];
+	    tasks: Task[];
+	    transfers: Transfer[];
+	    messages: MsgLine[];
+	    totals: Totals;
+	    taskMode: string;
+	    netMode: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Snapshot(source);
@@ -353,20 +335,20 @@ export class MsgLine {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.HostID = source["HostID"];
-	        this.Demo = source["Demo"];
-	        this.Online = source["Online"];
-	        this.Error = source["Error"];
-	        this.Version = source["Version"];
-	        this.TS = this.convertValues(source["TS"], time.Time);
-	        this.HostInfo = this.convertValues(source["HostInfo"], HostSpec);
-	        this.Projects = this.convertValues(source["Projects"], ProjectInfo);
-	        this.Tasks = this.convertValues(source["Tasks"], Task);
-	        this.Transfers = this.convertValues(source["Transfers"], Transfer);
-	        this.Messages = this.convertValues(source["Messages"], MsgLine);
-	        this.Totals = this.convertValues(source["Totals"], Totals);
-	        this.TaskMode = source["TaskMode"];
-	        this.NetMode = source["NetMode"];
+	        this.hostId = source["hostId"];
+	        this.demo = source["demo"];
+	        this.online = source["online"];
+	        this.error = source["error"];
+	        this.version = source["version"];
+	        this.ts = this.convertValues(source["ts"], time.Time);
+	        this.hostInfo = this.convertValues(source["hostInfo"], HostSpec);
+	        this.projects = this.convertValues(source["projects"], ProjectInfo);
+	        this.tasks = this.convertValues(source["tasks"], Task);
+	        this.transfers = this.convertValues(source["transfers"], Transfer);
+	        this.messages = this.convertValues(source["messages"], MsgLine);
+	        this.totals = this.convertValues(source["totals"], Totals);
+	        this.taskMode = source["taskMode"];
+	        this.netMode = source["netMode"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -388,9 +370,9 @@ export class MsgLine {
 		}
 	}
 	export class StatPoint {
-	    Day: string;
-	    HostCredit: number;
-	    UserCredit: number;
+	    day: string;
+	    hostCredit: number;
+	    userCredit: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new StatPoint(source);
@@ -398,15 +380,15 @@ export class MsgLine {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Day = source["Day"];
-	        this.HostCredit = source["HostCredit"];
-	        this.UserCredit = source["UserCredit"];
+	        this.day = source["day"];
+	        this.hostCredit = source["hostCredit"];
+	        this.userCredit = source["userCredit"];
 	    }
 	}
 	export class StatSeries {
-	    URL: string;
-	    Name: string;
-	    Daily: StatPoint[];
+	    url: string;
+	    name: string;
+	    daily: StatPoint[];
 	
 	    static createFrom(source: any = {}) {
 	        return new StatSeries(source);
@@ -414,36 +396,16 @@ export class MsgLine {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.URL = source["URL"];
-	        this.Name = source["Name"];
-	        this.Daily = this.convertValues(source["Daily"], StatPoint);
+	        this.url = source["url"];
+	        this.name = source["name"];
+	        this.daily = this.convertValues(source["daily"], StatPoint);
 	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	
-	
-	
 	export class XferPoint {
-	    When: number;
-	    Up: number;
-	    Down: number;
+	    when: number;
+	    up: number;
+	    down: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new XferPoint(source);
@@ -451,9 +413,9 @@ export class MsgLine {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.When = source["When"];
-	        this.Up = source["Up"];
-	        this.Down = source["Down"];
+	        this.when = source["when"];
+	        this.up = source["up"];
+	        this.down = source["down"];
 	    }
 	}
 
@@ -502,4 +464,3 @@ export namespace time {
 	}
 
 }
-

@@ -22,113 +22,113 @@ const (
 )
 
 type GPU struct {
-	Vendor string
-	Count  int
-	Names  []string
-	Driver string
-	Cuda   string
-	VRAM   int64
+	Vendor string   `json:"vendor"`
+	Count  int      `json:"count"`
+	Names  []string `json:"names"`
+	Driver string   `json:"driver"`
+	Cuda   string   `json:"cuda"`
+	VRAM   int64    `json:"vram"`
 }
 
 type HostSpec struct {
-	OS        string
-	OSVersion string
-	CPU       string
-	Cores     int
-	Flops     float64
-	Memory    int64
-	DiskFree  int64
-	DiskTotal int64
-	CPID      string
-	GPUs      []GPU
+	OS        string  `json:"os"`
+	OSVersion string  `json:"osVersion"`
+	CPU       string  `json:"cpu"`
+	Cores     int     `json:"cores"`
+	Flops     float64 `json:"flops"`
+	Memory    int64   `json:"memory"`
+	DiskFree  int64   `json:"diskFree"`
+	DiskTotal int64   `json:"diskTotal"`
+	CPID      string  `json:"cpid"`
+	GPUs      []GPU   `json:"gpus"`
 }
 
 type ProjectInfo struct {
-	Name       string
-	URL        string
-	Venue      string
-	UserName   string
-	TeamName   string
-	UserCredit float64
-	RAC        float64
-	HostCredit float64
-	HostRAC    float64
-	Share      float64
-	Suspended  bool
-	NoMoreWork bool
-	Pending    bool
-	Ended      bool
+	Name       string  `json:"name"`
+	URL        string  `json:"url"`
+	Venue      string  `json:"venue"`
+	UserName   string  `json:"userName"`
+	TeamName   string  `json:"teamName"`
+	UserCredit float64 `json:"userCredit"`
+	RAC        float64 `json:"rac"`
+	HostCredit float64 `json:"hostCredit"`
+	HostRAC    float64 `json:"hostRac"`
+	Share      float64 `json:"share"`
+	Suspended  bool    `json:"suspended"`
+	NoMoreWork bool    `json:"noMoreWork"`
+	Pending    bool    `json:"pending"`
+	Ended      bool    `json:"ended"`
 }
 
 type Task struct {
-	Name        string
-	Wu          string
-	URL         string
-	ProjectName string
-	Status      TaskStatus
-	Progress    float64
-	Elapsed     float64
-	CPUTime     float64
-	ETA         float64
-	Deadline    int64
-	CPTime      float64
-	Exit        int
-	Mem         int64
-	Resources   string
-	Slot        int
-	AppVersion  string
-	Active      bool
-	Suspended   bool
-	Ready       bool
+	Name        string     `json:"name"`
+	Wu          string     `json:"wu"`
+	URL         string     `json:"url"`
+	ProjectName string     `json:"projectName"`
+	Status      TaskStatus `json:"status"`
+	Progress    float64    `json:"progress"`
+	Elapsed     float64    `json:"elapsed"`
+	CPUTime     float64    `json:"cpuTime"`
+	ETA         float64    `json:"eta"`
+	Deadline    int64      `json:"deadline"`
+	CPTime      float64    `json:"cpTime"`
+	Exit        int        `json:"exit"`
+	Mem         int64      `json:"mem"`
+	Resources   string     `json:"resources"`
+	Slot        int        `json:"slot"`
+	AppVersion  string     `json:"appVersion"`
+	Active      bool       `json:"active"`
+	Suspended   bool       `json:"suspended"`
+	Ready       bool       `json:"ready"`
 }
 
 type Transfer struct {
-	Name        string
-	URL         string
-	ProjectName string
-	Upload      bool
-	Total       int64
-	Done        int64
-	Progress    float64
-	Paused      bool
-	Finished    bool
+	Name        string  `json:"name"`
+	URL         string  `json:"url"`
+	ProjectName string  `json:"projectName"`
+	Upload      bool    `json:"upload"`
+	Total       int64   `json:"total"`
+	Done        int64   `json:"done"`
+	Progress    float64 `json:"progress"`
+	Paused      bool    `json:"paused"`
+	Finished    bool    `json:"finished"`
 }
 
 type MsgLine struct {
-	Seq     int
-	Pri     int
-	Time    int64
-	Body    string
-	Project string
+	Seq     int    `json:"seq"`
+	Pri     int    `json:"pri"`
+	Time    int64  `json:"time"`
+	Body    string `json:"body"`
+	Project string `json:"project"`
 }
 
 type Totals struct {
-	Running   int
-	Paused    int
-	Queued    int
-	Errors    int
-	Downloads int
-	Uploads   int
-	Memory    int64
-	Credit    float64
-	RAC       float64
+	Running   int     `json:"running"`
+	Paused    int     `json:"paused"`
+	Queued    int     `json:"queued"`
+	Errors    int     `json:"errors"`
+	Downloads int     `json:"downloads"`
+	Uploads   int     `json:"uploads"`
+	Memory    int64   `json:"memory"`
+	Credit    float64 `json:"credit"`
+	RAC       float64 `json:"rac"`
 }
 
 type Snapshot struct {
-	HostID    string
-	Demo      bool
-	Online    bool
-	Error     string
-	Version   string
-	TS        time.Time
-	HostInfo  HostSpec
-	Projects  []ProjectInfo
-	Tasks     []Task
-	Transfers []Transfer
-	Messages  []MsgLine
-	Totals    Totals
-	TaskMode  string
-	NetMode   string
+	HostID    string        `json:"hostId"`
+	Demo      bool          `json:"demo"`
+	Online    bool          `json:"online"`
+	Error     string        `json:"error"`
+	Version   string        `json:"version"`
+	TS        time.Time     `json:"ts"`
+	HostInfo  HostSpec      `json:"hostInfo"`
+	Projects  []ProjectInfo `json:"projects"`
+	Tasks     []Task        `json:"tasks"`
+	Transfers []Transfer    `json:"transfers"`
+	Messages  []MsgLine     `json:"messages"`
+	Totals    Totals        `json:"totals"`
+	TaskMode  string        `json:"taskMode"`
+	NetMode   string        `json:"netMode"`
 }
 
 func statusOf(r boinc.Result) TaskStatus {

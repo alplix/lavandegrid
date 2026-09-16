@@ -8,9 +8,15 @@ on:
 
 env:
   GO_VERSION: '1.26'
+  NODE_VERSION: '20'
+  WAILS_VERSION: 'v2.15.0'
   APP_ID: dev.alplix.lavandegrid
   BOINC_WIN_URL: https://boinc.berkeley.edu/dl/boinc_8.2.4_windows_x86_64.exe
   BOINC_MAC_URL: https://boinc.berkeley.edu/dl/boinc_8.2.4_macOSX_universal.dmg
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -19,6 +25,7 @@ jobs:
   build-windows:
     name: Build windows/amd64
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -30,31 +37,41 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install mingw
-        run: sudo apt-get update && sudo apt-get install -y mingw-w64
+      - name: Install mingw and nsis
+        run: sudo apt-get update && sudo apt-get install -y mingw-w64 nsis
 
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
 
-      - name: Build
-        run: wails build -platform windows/amd64 -clean -nsis
+      - name: Build (NSIS installer)
+        run: wails build -platform windows/amd64 -clean -nsis -webview2 download
 
       - name: Bundle BOINC client
         run: |
           mkdir -p build/bin/bundled
           curl -L "$BOINC_WIN_URL" -o build/bin/bundled/boinc-installer-windows.exe
 
+      - name: Stage portable zip
+        working-directory: build/bin
+        run: |
+          mv lavandegrid.exe lavandegrid-windows-amd64.exe
+          zip -r ../../lavandegrid-windows-amd64.zip lavandegrid-windows-amd64.exe bundled/
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: lavandegrid-windows-amd64
-          path: build/bin/**
+          if-no-files-found: error
+          path: |
+            lavandegrid-windows-amd64.zip
+            build/bin/lavandegrid-amd64-installer.exe
 
   build-linux:
     name: Build linux ${{ matrix.arch }}
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -70,7 +87,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Install GTK dependencies
         run: |
@@ -78,20 +95,28 @@ jobs:
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev
 
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
 
       - name: Build
         run: wails build -platform linux/${{ matrix.arch }} -clean
+
+      - name: Stage archive
+        working-directory: build/bin
+        run: |
+          mv lavandegrid lavandegrid-linux-${{ matrix.arch }}
+          tar -czf ../../lavandegrid-linux-${{ matrix.arch }}.tar.gz lavandegrid-linux-${{ matrix.arch }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: lavandegrid-linux-${{ matrix.arch }}
-          path: build/bin/**
+          if-no-files-found: error
+          path: lavandegrid-linux-${{ matrix.arch }}.tar.gz
 
   build-darwin:
     name: Build darwin ${{ matrix.arch }}
     runs-on: macos-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -107,23 +132,35 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
 
       - name: Build
         run: wails build -platform darwin/${{ matrix.arch }} -clean
 
       - name: Bundle BOINC client
         run: |
+          mkdir -p build/bin/bundled
           curl -L "$BOINC_MAC_URL" -o build/bin/bundled/boinc-installer-macos.dmg
+
+      - name: Stage archive
+        working-directory: build/bin
+        run: |
+          APP="$(find . -maxdepth 1 -name '*.app' | head -1)"
+          if [ -z "$APP" ]; then echo "No .app bundle produced"; exit 1; fi
+          ditto -c -k --keepParent "$APP" ../../lavandegrid-darwin-${{ matrix.arch }}.zip
+          ditto -c -k --keepParent bundled ../../bundled-darwin-${{ matrix.arch }}.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: lavandegrid-darwin-${{ matrix.arch }}
-          path: build/bin/**
+          if-no-files-found: error
+          path: |
+            lavandegrid-darwin-${{ matrix.arch }}.zip
+            bundled-darwin-${{ matrix.arch }}.zip
 
   release:
     if: startsWith(github.ref, 'refs/tags/')
@@ -134,6 +171,10 @@ jobs:
         with:
           merge-multiple: true
           path: dist
+
+      - name: Generate checksums
+        working-directory: dist
+        run: sha256sum * > SHA256SUMS.txt
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2

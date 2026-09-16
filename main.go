@@ -10,6 +10,8 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
 //go:embed all:frontend/dist
@@ -31,7 +33,13 @@ func onTrayReady() {
 	systray.SetTooltip("LavandeGrid - BOINC Manager")
 
 	mShow := systray.AddMenuItem("Open LavandeGrid", "Show main window")
+	mRefresh := systray.AddMenuItem("Refresh all servers", "Poll every configured server now")
+	mHide := systray.AddMenuItem("Hide to tray", "Hide the main window")
+	systray.AddSeparator()
 	mQuit := systray.AddMenuItem("Quit", "Quit LavandeGrid")
+
+	mShow.Disable()
+	mHide.Disable()
 
 	go func() {
 		for {
@@ -40,6 +48,14 @@ func onTrayReady() {
 				if wailsApp != nil && wailsApp.ctx != nil {
 					wailsApp.showWindow()
 				}
+			case <-mHide.ClickedCh:
+				if wailsApp != nil && wailsApp.ctx != nil {
+					wailsApp.hideWindow()
+				}
+			case <-mRefresh.ClickedCh:
+				if wailsApp != nil {
+					wailsApp.RefreshAll()
+				}
 			case <-mQuit.ClickedCh:
 				systray.Quit()
 				os.Exit(0)
@@ -47,13 +63,13 @@ func onTrayReady() {
 		}
 	}()
 
-	go startWails()
+	go startWails(mShow, mHide)
 }
 
 func onTrayExit() {
 }
 
-func startWails() {
+func startWails(mShow, mHide *systray.MenuItem) {
 	wailsApp = NewApp()
 
 	err := wails.Run(&options.App{
@@ -62,8 +78,19 @@ func startWails() {
 		Height:    800,
 		MinWidth:  960,
 		MinHeight: 640,
+		BackgroundColour: &options.RGBA{
+			R: 17, G: 16, B: 26, A: 255,
+		},
 		AssetServer: &assetserver.Options{
 			Assets: assets,
+		},
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId: "dev.alplix.lavandegrid",
+			OnSecondInstanceLaunch: func(_ options.SecondInstanceData) {
+				if wailsApp != nil && wailsApp.ctx != nil {
+					wailsApp.showWindow()
+				}
+			},
 		},
 		OnStartup:  wailsApp.startup,
 		OnShutdown: wailsApp.shutdown,
@@ -73,6 +100,19 @@ func startWails() {
 			}
 			return true
 		},
+		Windows: &windows.Options{
+			WebviewIsTransparent: true,
+			WindowIsTranslucent:  true,
+			BackdropType:         windows.Acrylic,
+			Theme:                windows.SystemDefault,
+		},
+		Mac: &mac.Options{
+			About: &mac.AboutInfo{
+				Title:   "LavandeGrid " + appVersion,
+				Message: "A lavender-themed desktop manager for your BOINC fleet.\n\n© 2026 Alperen Yavuz\n" + appRepo,
+				Icon:    iconPNG,
+			},
+		},
 		Bind: []interface{}{
 			wailsApp,
 		},
@@ -81,4 +121,6 @@ func startWails() {
 		println("Error:", err.Error())
 		os.Exit(1)
 	}
+	mShow.Enable()
+	mHide.Enable()
 }

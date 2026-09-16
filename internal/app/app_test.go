@@ -140,3 +140,74 @@ func TestFmtHelpers(t *testing.T) {
 		t.Errorf("FmtNum: %s", FmtNum(5e6))
 	}
 }
+
+// TestSnapshotJSONKeys locks in the JSON contract the frontend depends on:
+// the whole API surface must serialize to stable camelCase keys.
+func TestSnapshotJSONKeys(t *testing.T) {
+	m := NewMock(HostCfg{ID: "contract", Name: "Contract"})
+	snap := m.Snapshot()
+	data, err := json.Marshal(snap)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(data, &obj); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	want := []string{"hostId", "demo", "online", "error", "version", "ts", "hostInfo", "projects", "tasks", "transfers", "messages", "totals", "taskMode", "netMode"}
+	for _, k := range want {
+		if _, ok := obj[k]; !ok {
+			t.Errorf("snapshot JSON missing key %q", k)
+		}
+	}
+	for k := range obj {
+		found := false
+		for _, w := range want {
+			if k == w {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("unexpected snapshot JSON key %q (contract drift)", k)
+		}
+	}
+	var tot map[string]json.RawMessage
+	if err := json.Unmarshal(obj["totals"], &tot); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"running", "paused", "queued", "errors", "downloads", "uploads", "memory", "credit", "rac"} {
+		if _, ok := tot[k]; !ok {
+			t.Errorf("totals JSON missing key %q", k)
+		}
+	}
+	var msgs []json.RawMessage
+	if err := json.Unmarshal(obj["messages"], &msgs); err != nil {
+		t.Fatalf("decode messages: %v", err)
+	}
+	if len(msgs) == 0 {
+		t.Fatal("contract mock should have messages")
+	}
+	var msg map[string]json.RawMessage
+	if err := json.Unmarshal(msgs[0], &msg); err != nil {
+		t.Fatalf("decode first message: %v", err)
+	}
+	if raw, ok := msg["time"]; !ok || len(raw) == 0 {
+		t.Error("message JSON is missing numeric `time` key")
+	}
+}
+
+func TestClientOpAll(t *testing.T) {
+	dir := t.TempDir()
+	m := NewManager()
+	m.Store = &Store{path: filepath.Join(dir, "hosts.json")}
+	m.Store.Upsert(HostCfg{Name: "Demo A", Host: "localhost", Port: 31416, Demo: true})
+	m.Store.Upsert(HostCfg{Name: "Demo B", Host: "localhost", Port: 31416, Demo: true})
+	failed := m.ClientOpAll("setRunMode", "always")
+	if len(failed) != 0 {
+		t.Fatalf("unexpected failures: %v", failed)
+	}
+	if n := m.RefreshAll(); n != 2 {
+		t.Fatalf("RefreshAll returned %d, want 2", n)
+	}
+}

@@ -10,6 +10,8 @@ export function Attach(arg1:string,arg2:string,arg3:string,arg4:string):Promise<
 
 export function ClientOp(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function ClientOpAll(arg1:string,arg2:string):Promise<Record<string, string>>;
+
 export function DetectDaemon():Promise<Record<string, any>>;
 
 export function FmtAgo(arg1:time.Time):Promise<string>;
@@ -40,6 +42,8 @@ export function GetStats(arg1:string):Promise<Array<app.StatSeries>>;
 
 export function GetXferHistory(arg1:string):Promise<Array<app.XferPoint>>;
 
+export function GetVersion():Promise<Record<string, string>>;
+
 export function LookupAccount(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function ProjColor(arg1:string):Promise<string>;
@@ -47,6 +51,8 @@ export function ProjColor(arg1:string):Promise<string>;
 export function ProjectOp(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function RemoveHost(arg1:string):Promise<void>;
+
+export function RefreshAll():Promise<number>;
 
 export function SetPrefs(arg1:string,arg2:Array<any>):Promise<void>;
 

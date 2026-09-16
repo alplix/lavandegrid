@@ -10,6 +10,13 @@ import (
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+const (
+	appName    = "LavandeGrid"
+	appVersion = "1.1.0"
+	appAuthor  = "Alperen Yavuz"
+	appRepo    = "https://github.com/alplix/lavandegrid"
+)
+
 type App struct {
 	ctx     context.Context
 	mgr     *app.Manager
@@ -98,6 +105,27 @@ func (a *App) RemoveHost(id string) {
 	_ = a.mgr.Store.Save()
 }
 
+// GetVersion returns app identity information for the About section.
+func (a *App) GetVersion() map[string]string {
+	return map[string]string{
+		"name":    appName,
+		"version": appVersion,
+		"author":  appAuthor,
+		"repo":    appRepo,
+	}
+}
+
+// RefreshAll re-polls every configured host immediately.
+func (a *App) RefreshAll() int {
+	return a.mgr.RefreshAll()
+}
+
+// ClientOpAll applies a client operation (run mode, network mode, benchmarks)
+// across the whole fleet and reports per-host failures.
+func (a *App) ClientOpAll(op, mode string) map[string]string {
+	return a.mgr.ClientOpAll(op, mode)
+}
+
 func (a *App) GetSnapshot(id string) *app.Snapshot {
 	return a.mgr.Snap(id)
 }
@@ -178,7 +206,7 @@ func (a *App) StartDaemon() error {
 	if a.daemon == nil {
 		return nil
 	}
-	return local.StartDaemon(a.daemon, "1.0.0")
+	return local.StartDaemon(a.daemon, appVersion)
 }
 
 func (a *App) StopDaemon() error {
@@ -206,8 +234,8 @@ func (a *App) hideWindow() {
 
 func (a *App) GetHostInfo() map[string]interface{} {
 	return map[string]interface{}{
-		"version": "1.0.0",
-		"name":    "LavandeGrid",
-		"author":  "Alperen Yavuz",
+		"version": appVersion,
+		"name":    appName,
+		"author":  appAuthor,
 	}
 }

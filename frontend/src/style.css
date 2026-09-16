@@ -323,6 +323,35 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width
 
 .linechart { width: 100%; height: auto; }
 
+.spark-wrap { display: flex; flex-direction: column; gap: 2px; }
+.spark { width: 100%; height: 36px; display: block; }
+.spark polyline { stroke-linejoin: round; stroke-linecap: round; }
+
+.last-up { white-space: nowrap; flex-shrink: 0; }
+
+textarea.kv {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  resize: vertical;
+  min-height: 180px;
+}
+
+code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  background: rgba(124, 58, 237, 0.12);
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001s !important;
+    transition-duration: 0.001s !important;
+  }
+}
+
 .progress.striped { position: relative; overflow: hidden; }
 .progress.striped::after {
   content: '';

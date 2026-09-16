@@ -14,6 +14,10 @@ export function ClientOp(arg1, arg2, arg3) {
   return window['go']['main']['App']['ClientOp'](arg1, arg2, arg3);
 }
 
+export function ClientOpAll(arg1, arg2) {
+  return window['go']['main']['App']['ClientOpAll'](arg1, arg2);
+}
+
 export function DetectDaemon() {
   return window['go']['main']['App']['DetectDaemon']();
 }
@@ -74,6 +78,10 @@ export function GetXferHistory(arg1) {
   return window['go']['main']['App']['GetXferHistory'](arg1);
 }
 
+export function GetVersion() {
+  return window['go']['main']['App']['GetVersion']();
+}
+
 export function LookupAccount(arg1, arg2, arg3) {
   return window['go']['main']['App']['LookupAccount'](arg1, arg2, arg3);
 }
@@ -88,6 +96,10 @@ export function ProjectOp(arg1, arg2, arg3) {
 
 export function RemoveHost(arg1) {
   return window['go']['main']['App']['RemoveHost'](arg1);
+}
+
+export function RefreshAll() {
+  return window['go']['main']['App']['RefreshAll']();
 }
 
 export function SetPrefs(arg1, arg2) {

@@ -10,16 +10,16 @@ import (
 )
 
 type HistPoint struct {
-	T       time.Time
-	Running int
+	T       time.Time `json:"t"`
+	Running int       `json:"running"`
 }
 
 type Notice struct {
-	Kind    string
-	HostID  string
-	HostName string
-	Title   string
-	Body    string
+	Kind     string `json:"kind"`
+	HostID   string `json:"hostId"`
+	HostName string `json:"hostName"`
+	Title    string `json:"title"`
+	Body     string `json:"body"`
 }
 
 type Manager struct {
@@ -389,6 +389,27 @@ func (m *Manager) LookupAccount(baseURL, email, pass string) (string, error) {
 	return boinc.LookupAccount(baseURL, email, pass)
 }
 
+// ClientOpAll applies a client operation to every configured host and returns
+// a map of host name -> error for the ones that failed.
+func (m *Manager) ClientOpAll(op, mode string) map[string]string {
+	failed := map[string]string{}
+	for _, h := range m.Store.List() {
+		if err := m.ClientOp(h.ID, op, mode); err != nil {
+			failed[h.Name] = err.Error()
+		}
+	}
+	return failed
+}
+
+// RefreshAll asks the manager to re-poll every configured host right away.
+func (m *Manager) RefreshAll() int {
+	hosts := m.Store.List()
+	for _, h := range hosts {
+		m.Kick(h.ID)
+	}
+	return len(hosts)
+}
+
 func (m *Manager) TestHost(cfg HostCfg) (string, error) {
 	if cfg.Demo {
 		return "8.2.4 (demo)", nil
@@ -447,32 +468,32 @@ func (m *Manager) PrefsClear(hostID string) error {
 }
 
 type StatSeries struct {
-	URL    string
-	Name   string
-	Daily  []StatPoint
+	URL   string      `json:"url"`
+	Name  string      `json:"name"`
+	Daily []StatPoint `json:"daily"`
 }
 
 type StatPoint struct {
-	Day        string
-	HostCredit float64
-	UserCredit float64
+	Day        string  `json:"day"`
+	HostCredit float64 `json:"hostCredit"`
+	UserCredit float64 `json:"userCredit"`
 }
 
 type XferPoint struct {
-	When int64
-	Up   float64
-	Down float64
+	When int64   `json:"when"`
+	Up   float64 `json:"up"`
+	Down float64 `json:"down"`
 }
 
 type DiskProject struct {
-	URL       string
-	DiskUsage int64
+	URL       string `json:"url"`
+	DiskUsage int64  `json:"diskUsage"`
 }
 
 type DiskInfo struct {
-	Total    int64
-	Free     int64
-	Projects []DiskProject
+	Total    int64         `json:"total"`
+	Free     int64         `json:"free"`
+	Projects []DiskProject `json:"projects"`
 }
 
 const statLayout = "20060102"
