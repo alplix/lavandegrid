@@ -151,22 +151,22 @@ export namespace app {
 		    return a;
 		}
 	}
-	export class MsgLine {
+export class MsgLine {
 	    Seq: number;
 	    Pri: number;
-	    Time: time.Time;
+	    Time: number;
 	    Body: string;
 	    Project: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new MsgLine(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.Seq = source["Seq"];
 	        this.Pri = source["Pri"];
-	        this.Time = this.convertValues(source["Time"], time.Time);
+	        this.Time = source["Time"];
 	        this.Body = source["Body"];
 	        this.Project = source["Project"];
 	    }

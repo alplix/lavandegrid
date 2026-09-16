@@ -30,7 +30,9 @@ func (a *App) startup(ctx context.Context) {
 		a.daemon = local.NewDaemon(a.daemonI)
 	}
 	a.autoConnectLocal()
-	a.mgr.OnNotice(func(n app.Notice) {})
+	a.mgr.OnNotice(func(n app.Notice) {
+		wailsruntime.EventsEmit(a.ctx, "notice", n)
+	})
 	a.mgr.Start()
 }
 

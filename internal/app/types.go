@@ -97,7 +97,7 @@ type Transfer struct {
 type MsgLine struct {
 	Seq     int
 	Pri     int
-	Time    time.Time
+	Time    int64
 	Body    string
 	Project string
 }
@@ -315,7 +315,7 @@ func Normalize(hostID string, demo bool, st *boinc.ClientState, transfers []boin
 			continue
 		}
 		snap.Messages = append(snap.Messages, MsgLine{
-			Seq: m.Seqno.I(), Pri: m.Pri.I(), Time: time.Unix(m.Time.I64(), 0),
+			Seq: m.Seqno.I(), Pri: m.Pri.I(), Time: m.Time.I64(),
 			Body: m.Body, Project: m.Project,
 		})
 	}

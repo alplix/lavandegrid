@@ -17,8 +17,13 @@ let state = {
   daemonInfo: null,
   stats: {},
   xfers: {},
-  disk: {}
+  disk: {},
+  prefs: {},
+  filterStatus: 'all'
 }
+
+let prevSnaps = {}
+let notifPermission = 'default'
 
 function toast(msg, type = 'info') {
   const id = Date.now()
@@ -38,7 +43,10 @@ function renderToasts() {
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML }
 
+function jsq(s) { return esc(String(s)) }
+
 function fmtCredit(v) {
+  v = v || 0
   if (v >= 1e9) return (v / 1e9).toFixed(2) + ' B'
   if (v >= 1e6) return (v / 1e6).toFixed(2) + ' M'
   if (v >= 1e4) return (v / 1e3).toFixed(1) + ' k'
@@ -47,6 +55,7 @@ function fmtCredit(v) {
 }
 
 function fmtBytes(b) {
+  b = b || 0
   if (b < 1024) return b + ' B'
   const units = ['KB', 'MB', 'GB', 'TB']
   let u = -1, n = b
@@ -88,17 +97,13 @@ function projColor(url) {
 
 function statusBadge(s) {
   const map = { running: 'running', paused: 'paused', queued: 'queued', downloading: 'download', uploading: 'upload', error: 'error', ready: 'ready' }
-  return `<span class="badge ${map[s] || 'queued'}">${s}</span>`
+  return `<span class="badge ${map[s] || 'queued'}">${esc(s)}</span>`
 }
 
 async function api(method, ...args) {
-  try {
-    const fn = window.go.main.App[method]
-    if (!fn) throw new Error(`Method ${method} not found`)
-    return await fn(...args)
-  } catch (e) {
-    throw e
-  }
+  const fn = window.go.main.App[method]
+  if (!fn) throw new Error(`Method ${method} not found`)
+  return await fn(...args)
 }
 
 async function refreshHosts() {
@@ -111,12 +116,16 @@ async function refreshHosts() {
       if (hist) state.hist[h.id] = hist
     } catch (e) {}
   }
+  checkNotifications()
   render()
 }
 
 function setPage(page) {
   state.page = page
   state.modal = null
+  state.searchQuery = ''
+  state.filterStatus = 'all'
+  if (page === 'settings') loadSettingsData()
   render()
 }
 
@@ -200,12 +209,12 @@ function renderShell() {
 }
 
 function pageTitle() {
-  const map = { dashboard: 'Dashboard', tasks: 'Tasks', projects: 'Projects', transfers: 'Transfers', messages: 'Messages', hosts: 'Servers', settings: 'Settings' }
+  const map = { dashboard: 'Dashboard', tasks: 'Tasks', projects: 'Projects', transfers: 'Transfers', messages: 'Messages', stats: 'Statistics', hosts: 'Servers', settings: 'Settings' }
   return map[state.page] || 'Dashboard'
 }
 
 function pageSub() {
-  const online = Object.values(state.snaps).filter(s => s.online).length
+  const online = Object.values(state.snaps).filter(s => s.Online).length
   return `${state.hosts.length} host(s) configured, ${online} online`
 }
 
@@ -226,18 +235,20 @@ function renderContent() {
 }
 
 function renderDashboard() {
-  const list = Object.values(state.snaps).filter(s => s.online)
-  const running = list.reduce((a, s) => a + s.totals.running, 0)
-  const queued = list.reduce((a, s) => a + s.totals.queued + s.totals.paused, 0)
-  const rac = list.reduce((a, s) => a + s.totals.rac, 0)
-  const credit = list.reduce((a, s) => a + s.totals.credit, 0)
+  const list = Object.values(state.snaps).filter(s => s.Online)
+  const running = list.reduce((a, s) => a + (s.Totals?.Running || 0), 0)
+  const paused = list.reduce((a, s) => a + (s.Totals?.Paused || 0), 0)
+  const queued = list.reduce((a, s) => a + (s.Totals?.Queued || 0), 0)
+  const errors = list.reduce((a, s) => a + (s.Totals?.Errors || 0), 0)
+  const rac = list.reduce((a, s) => a + (s.Totals?.RAC || 0), 0)
+  const credit = list.reduce((a, s) => a + (s.Totals?.Credit || 0), 0)
 
   let serverCards = ''
   for (const h of state.hosts) {
     const snap = state.snaps[h.id]
-    const online = snap?.online
-    const projects = (snap?.projects || []).slice(0, 4).map(p =>
-      `<span class="chip"><span class="chip-dot" style="background:${projColor(p.url)}"></span><span class="trunc">${esc(p.name || p.url)}</span></span>`
+    const online = snap?.Online
+    const projects = (snap?.Projects || []).slice(0, 4).map(p =>
+      `<span class="chip"><span class="chip-dot" style="background:${projColor(p.URL)}"></span><span class="trunc">${esc(p.Name || p.URL)}</span></span>`
     ).join('')
 
     serverCards += `
@@ -250,23 +261,23 @@ function renderDashboard() {
               <div class="faint num">${esc(h.host)}:${h.port}</div>
             </div>
           </div>
-          ${online && snap.version ? `<span class="chip indigo num">v${esc(snap.version)}</span>` : ''}
+          ${online && snap.Version ? `<span class="chip indigo num">v${esc(snap.Version)}</span>` : ''}
         </div>
         ${online ? `
           <div class="row wrap" style="gap:14px">
-            <span><b class="num">${snap.totals.running}</b> <span class="muted">running</span></span>
-            <span><b class="num">${snap.totals.paused}</b> <span class="muted">paused</span></span>
-            <span><b class="num">${snap.totals.queued}</b> <span class="muted">queued</span></span>
-            ${snap.totals.errors > 0 ? `<span class="badge error">${snap.totals.errors} error(s)</span>` : ''}
+            <span><b class="num">${snap.Totals?.Running || 0}</b> <span class="muted">running</span></span>
+            <span><b class="num">${snap.Totals?.Paused || 0}</b> <span class="muted">paused</span></span>
+            <span><b class="num">${snap.Totals?.Queued || 0}</b> <span class="muted">queued</span></span>
+            ${(snap.Totals?.Errors || 0) > 0 ? `<span class="badge error">${snap.Totals.Errors} error(s)</span>` : ''}
           </div>
           <div class="spread faint">
-            <span>RAC <b class="num muted">${fmtCredit(snap.totals.rac)}</b></span>
-            <span>Credit <b class="num muted">${fmtCredit(snap.totals.credit)}</b></span>
+            <span>RAC <b class="num muted">${fmtCredit(snap.Totals?.RAC)}</b></span>
+            <span>Credit <b class="num muted">${fmtCredit(snap.Totals?.Credit)}</b></span>
           </div>
           <div class="row wrap" style="gap:6px">${projects}</div>
         ` : `
           <div class="empty" style="padding:18px 10px">
-            <b>${snap?.error || 'Waiting for connection...'}</b>
+            <b>${snap?.Error || 'Waiting for connection...'}</b>
           </div>
         `}
       </div>
@@ -275,12 +286,12 @@ function renderDashboard() {
 
   let feed = []
   for (const [hid, s] of Object.entries(state.snaps)) {
-    if (!s.online) continue
-    for (const m of (s.messages || []).slice(-8)) {
+    if (!s.Online) continue
+    for (const m of (s.Messages || []).slice(-8)) {
       feed.push({ ...m, hostId: hid })
     }
   }
-  feed.sort((a, b) => b.time - a.time || b.seq - a.seq)
+  feed.sort((a, b) => b.Time - a.Time || b.Seq - a.Seq)
   const recent = feed.slice(0, 10)
 
   return `<div class="content-inner">
@@ -289,7 +300,7 @@ function renderDashboard() {
         <div class="row"><div class="stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/></svg></div><div><div class="stat-label">Servers</div><div class="stat-value num">${list.length}/${state.hosts.length}</div><div class="faint">${onlineCount()} online</div></div></div>
       </div>
       <div class="card hoverable">
-        <div class="row"><div class="stat-icon alt"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div><div class="stat-label">Active Tasks</div><div class="stat-value num">${running}</div><div class="faint">${queued} pending</div></div></div>
+        <div class="row"><div class="stat-icon alt"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div><div class="stat-label">Active Tasks</div><div class="stat-value num">${running}</div><div class="faint">${paused + queued} idle/paused</div></div></div>
       </div>
       <div class="card hoverable">
         <div class="row"><div class="stat-icon soft"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg></div><div><div class="stat-label">Fleet RAC</div><div class="stat-value num gain-pos">${fmtCredit(rac)}</div><div class="faint">recent average credit</div></div></div>
@@ -299,40 +310,60 @@ function renderDashboard() {
       </div>
     </div>
     <div class="cards-grid">${serverCards || '<div class="card"><div class="empty"><b>No servers configured</b><span class="faint">Add a server to get started</span></div></div>'}</div>
+    ${errors > 0 ? `<div class="card" style="border-color:rgba(239,68,68,0.4)"><div class="card-head"><h2 class="card-title" style="color:var(--err)">Task Errors</h2></div><div class="faint">${errors} task(s) across the fleet are in an error state</div></div>` : ''}
     ${recent.length > 0 ? `
       <div class="card">
         <div class="card-head"><h2 class="card-title">Recent Activity</h2></div>
-        ${recent.map(m => `<div class="msg-line"><span class="msg-pri-${Math.min(m.pri || 1, 3)} num faint" style="flex-shrink:0">${fmtAgo(m.time)}</span><span class="grow trunc" title="${esc(m.body)}">${esc(m.body)}</span></div>`).join('')}
+        ${recent.map(m => `<div class="msg-line"><span class="msg-pri-${Math.min(m.Pri || 1, 3)} num faint" style="flex-shrink:0">${fmtAgo(m.Time)}</span><span class="grow trunc" title="${jsq(m.Body)}">${esc(m.Body)}</span></div>`).join('')}
       </div>
     ` : ''}
   </div>`
 }
 
-function onlineCount() { return Object.values(state.snaps).filter(s => s.online).length }
+function onlineCount() { return Object.values(state.snaps).filter(s => s.Online).length }
 
 function renderTasks() {
   let rows = ''
   for (const [hid, snap] of Object.entries(state.snaps)) {
-    if (!snap.online) continue
+    if (!snap.Online) continue
     const host = state.hosts.find(h => h.id === hid)
-    for (const t of snap.tasks) {
-      const pct = Math.round((t.progress || 0) * 100)
+    for (const t of snap.Tasks || []) {
+      if (state.filterStatus !== 'all' && t.Status !== state.filterStatus) continue
+      if (state.searchQuery) {
+        const q = state.searchQuery.toLowerCase()
+        if (!(t.Name || '').toLowerCase().includes(q) && !(t.ProjectName || '').toLowerCase().includes(q)) continue
+      }
+      const pct = Math.round((t.Progress || 0) * 100)
       rows += `<tr>
-        <td class="task-name trunc" title="${esc(t.name)}">${esc(t.name)}</td>
-        <td>${esc(t.projectName || '-')}</td>
-        <td>${statusBadge(t.status)}</td>
+        <td class="task-name trunc" title="${jsq(t.Name)}">${esc(t.Name)}</td>
+        <td>${esc(t.ProjectName || '-')}</td>
+        <td>${statusBadge(t.Status)}</td>
         <td><div class="progress"><div class="fill" style="width:${pct}%"></div></div><span class="faint num">${pct}%</span></td>
-        <td class="num">${fmtDuration(t.elapsed)}</td>
-        <td class="num">${fmtDuration(t.eta)}</td>
-        <td>${esc(t.resources || '-')}</td>
+        <td class="num">${fmtDuration(t.Elapsed)}</td>
+        <td class="num">${fmtDuration(t.ETA)}</td>
+        <td>${esc(t.Resources || '-')}</td>
         <td><span class="chip plain trunc">${esc(host?.name || hid)}</span></td>
+        <td>
+          <div class="row" style="gap:4px">
+            ${t.Status === 'running' ? `<button class="btn sm" onclick="window._taskOp('${hid}','${t.Name}','suspend')" title="Pause">⏸</button>` : ''}
+            ${t.Status !== 'running' && t.Status !== 'download' ? `<button class="btn sm" onclick="window._taskOp('${hid}','${t.Name}','resume')" title="Resume">▶</button>` : ''}
+            ${t.Status === 'error' ? `<button class="btn sm danger" onclick="window._taskOp('${hid}','${t.Name}','abort')" title="Abort">✕</button>` : ''}
+          </div>
+        </td>
       </tr>`
     }
   }
+  const filterButtons = ['all', 'running', 'paused', 'queued', 'error', 'ready'].map(s =>
+    `<button class="btn sm ${state.filterStatus === s ? 'primary' : ''}" onclick="window._setFilter('${s}')">${esc(s)}</button>`
+  ).join('')
   return `<div class="content-inner">
     <div class="card">
-      <div class="card-head"><h2 class="card-title">All Tasks</h2></div>
-      ${rows ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Project</th><th>Status</th><th>Progress</th><th>Elapsed</th><th>ETA</th><th>Resources</th><th>Server</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="empty"><b>No tasks</b></div>'}
+      <div class="card-head">
+        <h2 class="card-title">All Tasks</h2>
+        <input class="input" style="width:240px;padding:6px 12px" placeholder="Search tasks..." value="${jsq(state.searchQuery)}" oninput="window._searchTasks(this.value)">
+      </div>
+      <div class="row wrap" style="gap:6px;margin-bottom:14px">${filterButtons}</div>
+      ${rows ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Project</th><th>Status</th><th>Progress</th><th>Elapsed</th><th>ETA</th><th>Resources</th><th>Server</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="empty"><b>No tasks</b></div>'}
     </div>
   </div>`
 }
@@ -340,53 +371,77 @@ function renderTasks() {
 function renderProjects() {
   let cards = ''
   for (const [hid, snap] of Object.entries(state.snaps)) {
-    if (!snap.online) continue
+    if (!snap.Online) continue
     const host = state.hosts.find(h => h.id === hid)
-    for (const p of snap.projects) {
+    for (const p of snap.Projects || []) {
       cards += `
         <div class="card hoverable" style="display:flex;flex-direction:column;gap:10px">
           <div class="row">
-            <div class="proj-avatar" style="background:${projColor(p.url)};width:36px;height:36px;border-radius:11px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0">${(p.name || '?')[0]}</div>
-            <div style="min-width:0"><div class="trunc" style="font-weight:700;font-size:14px">${esc(p.name)}</div><div class="faint num trunc" style="font-size:11px">${esc(p.url)}</div></div>
+            <div class="proj-avatar" style="background:${projColor(p.URL)};width:36px;height:36px;border-radius:11px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0">${esc((p.Name || '?')[0])}</div>
+            <div style="min-width:0;flex:1"><div class="trunc" style="font-weight:700;font-size:14px">${esc(p.Name)}</div><div class="faint num trunc" style="font-size:11px">${esc(p.URL)}</div></div>
           </div>
           <div class="spread faint num" style="font-size:12px">
-            <span>Host RAC: <b>${fmtCredit(p.hostRac)}</b></span>
-            <span>Host Credit: <b>${fmtCredit(p.hostCredit)}</b></span>
+            <span>Host RAC: <b>${fmtCredit(p.HostRac)}</b></span>
+            <span>Host Credit: <b>${fmtCredit(p.HostCredit)}</b></span>
+          </div>
+          <div class="spread faint num" style="font-size:12px">
+            <span>User: <b>${fmtCredit(p.UserCredit)}</b></span>
+            <span>RAC: <b>${fmtCredit(p.RAC)}</b></span>
           </div>
           <div class="row wrap" style="gap:6px">
             <span class="chip plain">${esc(host?.name || hid)}</span>
-            ${p.suspended ? '<span class="badge paused">suspended</span>' : ''}
+            ${p.Suspended ? '<span class="badge paused">suspended</span>' : ''}
+            ${p.NoMoreWork ? '<span class="badge queued">no more work</span>' : ''}
+          </div>
+          <div class="row wrap" style="gap:4px;margin-top:4px">
+            ${p.Suspended
+              ? `<button class="btn sm" onclick="window._projectOp('${hid}','${p.URL}','resume')">Resume</button>`
+              : `<button class="btn sm" onclick="window._projectOp('${hid}','${p.URL}','suspend')">Suspend</button>`
+            }
+            <button class="btn sm" onclick="window._projectOp('${hid}','${p.URL}','update')">Update</button>
+            ${p.NoMoreWork
+              ? `<button class="btn sm" onclick="window._projectOp('${hid}','${p.URL}','allowmorework')">Allow Work</button>`
+              : `<button class="btn sm" onclick="window._projectOp('${hid}','${p.URL}','nomorework')">No More Work</button>`
+            }
+            <button class="btn sm danger" onclick="window._projectOp('${hid}','${p.URL}','detach')">Detach</button>
           </div>
         </div>
       `
     }
   }
   return `<div class="content-inner">
-    <div class="cards-grid">${cards || '<div class="card"><div class="empty"><b>No projects</b></div></div>'}</div>
+    <div style="display:flex;justify-content:flex-end"><button class="btn primary" onclick="window._showAttachProject()">+ Attach Project</button></div>
+    <div class="cards-grid">${cards || '<div class="card"><div class="empty"><b>No projects</b><span class="faint">Attach a project to get started</span></div></div>'}</div>
   </div>`
 }
 
 function renderTransfers() {
   let rows = ''
   for (const [hid, snap] of Object.entries(state.snaps)) {
-    if (!snap.online) continue
+    if (!snap.Online) continue
     const host = state.hosts.find(h => h.id === hid)
-    for (const t of snap.transfers) {
-      const pct = Math.round((t.progress || 0) * 100)
+    for (const t of snap.Transfers || []) {
+      const pct = Math.round((t.Progress || 0) * 100)
       rows += `<tr>
-        <td class="trunc" title="${esc(t.name)}" style="max-width:220px">${esc(t.name)}</td>
-        <td>${esc(t.projectName || '-')}</td>
-        <td><span class="badge ${t.upload ? 'upload' : 'download'}">${t.upload ? 'Upload' : 'Download'}</span></td>
+        <td class="trunc" title="${jsq(t.Name)}" style="max-width:220px">${esc(t.Name)}</td>
+        <td>${esc(t.ProjectName || '-')}</td>
+        <td><span class="badge ${t.Upload ? 'upload' : 'download'}">${t.Upload ? 'Upload' : 'Download'}</span></td>
         <td><div class="progress"><div class="fill" style="width:${pct}%"></div></div><span class="faint num">${pct}%</span></td>
-        <td class="num">${fmtBytes(t.done)} / ${fmtBytes(t.total)}</td>
+        <td class="num">${fmtBytes(t.Done)} / ${fmtBytes(t.Total)}</td>
         <td><span class="chip plain trunc">${esc(host?.name || hid)}</span></td>
+        <td>
+          <div class="row" style="gap:4px">
+            ${t.Paused ? `<button class="btn sm" onclick="window._transferOp('${hid}','${t.Name}','retry')">Retry</button>` : ''}
+            <button class="btn sm danger" onclick="window._transferOp('${hid}','${t.Name}','abort')">Abort</button>
+          </div>
+        </td>
       </tr>`
     }
   }
   return `<div class="content-inner">
     <div class="card">
       <div class="card-head"><h2 class="card-title">Transfers</h2></div>
-      ${rows ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Project</th><th>Type</th><th>Progress</th><th>Size</th><th>Server</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="empty"><b>No active transfers</b></div>'}
+      ${rows ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Project</th><th>Type</th><th>Progress</th><th>Size</th><th>Server</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="empty"><b>No active transfers</b></div>'}
     </div>
   </div>`
 }
@@ -394,17 +449,20 @@ function renderTransfers() {
 function renderMessages() {
   let msgs = []
   for (const [hid, snap] of Object.entries(state.snaps)) {
-    if (!snap.online) continue
-    for (const m of (snap.messages || [])) {
+    if (!snap.Online) continue
+    for (const m of snap.Messages || []) {
       msgs.push({ ...m, hostId: hid })
     }
   }
-  msgs.sort((a, b) => b.time - a.time || b.seq - a.seq)
+  msgs.sort((a, b) => b.Time - a.Time || b.Seq - a.Seq)
 
   return `<div class="content-inner">
     <div class="card">
       <div class="card-head"><h2 class="card-title">Messages</h2></div>
-      ${msgs.length > 0 ? msgs.slice(0, 50).map(m => `<div class="msg-line"><span class="msg-pri-${Math.min(m.pri || 1, 3)} num faint" style="flex-shrink:0">${fmtAgo(m.time)}</span><span class="grow trunc" title="${esc(m.body)}">${esc(m.body)}</span><span class="chip plain" style="flex-shrink:0">${esc(state.snaps[m.hostId]?.host || m.hostId)}:${state.snaps[m.hostId]?.port || ''}</span></div>`).join('') : '<div class="empty"><b>No messages</b></div>'}
+      ${msgs.length > 0 ? msgs.slice(0, 100).map(m => {
+        const host = state.hosts.find(h => h.id === m.hostId)
+        return `<div class="msg-line"><span class="msg-pri-${Math.min(m.Pri || 1, 3)} num faint" style="flex-shrink:0">${fmtAgo(m.Time)}</span><span class="grow trunc" title="${jsq(m.Body)}">${esc(m.Body)}</span><span class="chip plain" style="flex-shrink:0">${esc(host?.name || m.hostId)}</span></div>`
+      }).join('') : '<div class="empty"><b>No messages</b></div>'}
     </div>
   </div>`
 }
@@ -504,29 +562,27 @@ function renderStats() {
 function renderStatsInner() {
   const PALETTE = ['#7c3aed', '#6366f1', '#a78bfa', '#818cf8', '#c084fc', '#8b5cf6', '#4f46e5', '#6d28d9']
   let creditCharts = ''
-  let totalCredit = 0
-  let totalRAC = 0
+  let xferData = []
+  let diskCards = ''
 
   for (const h of state.hosts) {
     const series = state.stats[h.id] || []
     for (const s of series) {
-      const color = PALETTE[Math.abs(s.url.length * 47) % PALETTE.length]
-      const data = (s.daily || []).map(p => ({ v: p.hostCredit, l: p.day.slice(4, 6) + '/' + p.day.slice(6, 8) }))
-      if (data.length > 0) totalCredit = Math.max(totalCredit, data[data.length - 1].v)
+      const color = PALETTE[Math.abs((s.URL || '').length * 47) % PALETTE.length]
+      const data = (s.Daily || []).map(p => ({ v: p.HostCredit, l: (p.Day || '').slice(4, 6) + '/' + (p.Day || '').slice(6, 8) }))
       creditCharts += `
         <div class="card" style="display:flex;flex-direction:column;gap:8px">
-          <div class="card-head"><h3 class="card-title" style="font-size:14px"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${color};flex-shrink:0"></span> ${esc(s.name || s.url)}</h3><span class="chip plain">${esc(h.name)}</span></div>
+          <div class="card-head"><h3 class="card-title" style="font-size:14px"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${color};flex-shrink:0"></span> ${esc(s.Name || s.URL)}</h3><span class="chip plain">${esc(h.name)}</span></div>
           ${svgLineChart(data, 800, 220, color)}
         </div>
       `
     }
   }
 
-  let xferData = []
   let xferChart = ''
   for (const h of state.hosts) {
     const xf = state.xfers[h.id] || []
-    xferData = xf.map(d => ({ up: d.up, down: d.down, l: new Date(d.when * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }))
+    xferData = xf.map(d => ({ up: d.Up || 0, down: d.Down || 0, l: new Date((d.When || 0) * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }))
   }
   if (xferData.length > 0) {
     xferChart = `
@@ -541,28 +597,28 @@ function renderStatsInner() {
     `
   }
 
-  let diskCards = ''
   for (const h of state.hosts) {
     const du = state.disk[h.id]
     if (!du) continue
-    const used = du.total - du.free
-    const pct = du.total > 0 ? Math.round((used / du.total) * 100) : 0
+    const used = (du.Total || 0) - (du.Free || 0)
+    const pct = du.Total > 0 ? Math.round((used / du.Total) * 100) : 0
     let projectBars = ''
     const colors = ['#7c3aed', '#6366f1', '#a78bfa', '#818cf8', '#c084fc', '#8b5cf6']
-    for (let i = 0; i < (du.projects || []).length; i++) {
-      const p = du.projects[i]
-      const ppct = du.total > 0 ? Math.round((p.diskUsage / du.total) * 100) : 0
+    for (let i = 0; i < (du.Projects || []).length; i++) {
+      const p = du.Projects[i]
+      const ppct = du.Total > 0 ? Math.round(((p.DiskUsage || 0) / du.Total) * 100) : 0
+      const short = (p.URL || '').replace('https://', '').replace('http://', '').split('/')[0]
       projectBars += `<div style="display:flex;align-items:center;gap:8px;font-size:12px">
         <span style="width:8px;height:8px;border-radius:3px;background:${colors[i % colors.length]};flex-shrink:0"></span>
-        <span class="grow trunc">${esc(p.url.replace('https://', '').replace('http://', '').split('/')[0])}</span>
-        <span class="num faint">${fmtBytes(p.diskUsage)} (${ppct}%)</span>
+        <span class="grow trunc">${esc(short)}</span>
+        <span class="num faint">${fmtBytes(p.DiskUsage)} (${ppct}%)</span>
       </div>`
     }
     diskCards += `
       <div class="card" style="display:flex;flex-direction:column;gap:10px">
         <div class="card-head"><h3 class="card-title" style="font-size:14px">Disk Usage</h3><span class="chip plain">${esc(h.name)}</span></div>
         <div class="progress striped" style="height:10px"><div class="fill" style="width:${pct}%"></div></div>
-        <div class="spread faint num" style="font-size:12px"><span>${fmtBytes(used)} used</span><span>${fmtBytes(du.free)} free</span><span>${fmtBytes(du.total)} total</span></div>
+        <div class="spread faint num" style="font-size:12px"><span>${fmtBytes(used)} used</span><span>${fmtBytes(du.Free)} free</span><span>${fmtBytes(du.Total)} total</span></div>
         ${projectBars ? `<div style="display:flex;flex-direction:column;gap:5px;margin-top:6px">${projectBars}</div>` : ''}
       </div>
     `
@@ -581,7 +637,8 @@ function renderHosts() {
   let cards = ''
   for (const h of state.hosts) {
     const snap = state.snaps[h.id]
-    const online = snap?.online
+    const online = snap?.Online
+    const gpus = snap?.HostInfo?.GPUs || []
     cards += `
       <div class="card hoverable" style="display:flex;flex-direction:column;gap:10px">
         <div class="spread">
@@ -589,20 +646,30 @@ function renderHosts() {
             <span class="dot ${online ? 'on' : 'off'}"></span>
             <div><div style="font-weight:700;font-size:15px">${esc(h.name)}</div><div class="faint num">${esc(h.host)}:${h.port}</div></div>
           </div>
-          <button class="btn sm danger" onclick="window._removeHost('${h.id}')">Remove</button>
+          <div class="row" style="gap:6px">
+            <button class="btn sm" onclick="window._showEditHost('${h.id}')">Edit</button>
+            <button class="btn sm" onclick="window._testHost('${h.id}')">Test</button>
+            <button class="btn sm danger" onclick="window._removeHost('${h.id}')">Remove</button>
+          </div>
         </div>
         ${online ? `
-          <div class="faint num" style="font-size:12px">${esc(snap.hostInfo?.os || '')} · ${esc(snap.hostInfo?.cpu || '')} · ${snap.hostInfo?.cores || 0} cores</div>
-          ${snap.hostInfo?.gpus?.length ? `<div class="faint" style="font-size:12px">GPU: ${snap.hostInfo.gpus.map(g => g.names.join(', ')).join(' | ')}</div>` : ''}
-        ` : `<div class="faint">${snap?.error || 'Offline'}</div>`}
+          <div class="faint num" style="font-size:12px">${esc(snap.HostInfo?.OS || '')} · ${esc(snap.HostInfo?.CPU || '')} · ${snap.HostInfo?.Cores || 0} cores</div>
+          ${gpus.length ? `<div class="faint" style="font-size:12px">GPU: ${gpus.map(g => g.Names.join(', ')).join(' | ')}</div>` : ''}
+        ` : `<div class="faint">${snap?.Error || 'Offline'}</div>`}
       </div>
     `
   }
   return `<div class="content-inner">
     <div style="display:flex;justify-content:flex-end"><button class="btn primary" onclick="window._showAddHost()">+ Add Server</button></div>
     <div class="cards-grid">${cards || '<div class="card"><div class="empty"><b>No servers</b><span class="faint">Add a server to manage</span></div></div>'}</div>
-    ${state.modal || ''}
   </div>`
+}
+
+async function loadSettingsData() {
+  const hosts = state.hosts.filter(h => !h.demo)
+  for (const h of hosts) {
+    try { state.prefs[h.id] = await api('GetPrefs', h.id) } catch (e) { state.prefs[h.id] = {} }
+  }
 }
 
 function renderSettings() {
@@ -614,13 +681,13 @@ function renderSettings() {
 
   let hwCards = ''
   for (const [hid, snap] of Object.entries(state.snaps)) {
-    if (!snap?.online || !snap.hostInfo) continue
-    const hi = snap.hostInfo
+    if (!snap?.Online || !snap.HostInfo) continue
+    const hi = snap.HostInfo
     const host = state.hosts.find(h => h.id === hid)
     const gpus = (hi.GPUs || []).map(g => `<div class="row" style="gap:6px;font-size:12px"><span style="width:8px;height:8px;border-radius:3px;background:#7c3aed;flex-shrink:0"></span><span class="grow">${esc((g.Names || []).join(', '))}</span><span class="num faint">${fmtBytes(g.VRAM || 0)}</span></div>`).join('')
     hwCards += `
       <div class="card" style="display:flex;flex-direction:column;gap:10px">
-        <div class="card-head"><h3 class="card-title" style="font-size:14px">${esc(host?.name || hid)}</h3><span class="chip indigo num">v${esc(snap.version || '?')}</span></div>
+        <div class="card-head"><h3 class="card-title" style="font-size:14px">${esc(host?.name || hid)}</h3><span class="chip indigo num">v${esc(snap.Version || '?')}</span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;font-size:12px">
           <div class="faint">OS</div><div class="num">${esc(hi.OS || '?')} ${esc(hi.OSVersion || '')}</div>
           <div class="faint">CPU</div><div class="num">${esc(hi.CPU || '?')}</div>
@@ -630,6 +697,31 @@ function renderSettings() {
           <div class="faint">Disk</div><div class="num">${fmtBytes(hi.DiskTotal || 0)} total, ${fmtBytes(hi.DiskFree || 0)} free</div>
         </div>
         ${gpus ? `<div style="display:flex;flex-direction:column;gap:5px;margin-top:4px"><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px">GPUs</div>${gpus}</div>` : ''}
+      </div>
+    `
+  }
+
+  let prefsCards = ''
+  for (const h of state.hosts) {
+    if (h.demo) continue
+    const snap = state.snaps[h.id]
+    if (!snap?.Online) continue
+    prefsCards += `
+      <div class="card" style="display:flex;flex-direction:column;gap:10px">
+        <div class="card-head"><h3 class="card-title" style="font-size:14px">${esc(h.name)}</h3></div>
+        <div class="row" style="gap:8px">
+          <button class="btn sm ${snap.TaskMode === 'always' ? 'primary' : ''}" onclick="window._setClientOp('${h.id}','setRunMode','always')">Always</button>
+          <button class="btn sm ${snap.TaskMode === 'auto' ? 'primary' : ''}" onclick="window._setClientOp('${h.id}','setRunMode','auto')">Auto</button>
+          <button class="btn sm ${snap.TaskMode === 'never' ? 'primary' : ''}" onclick="window._setClientOp('${h.id}','setRunMode','never')">Never</button>
+          <span class="faint" style="font-size:12px">Run mode</span>
+        </div>
+        <div class="row" style="gap:8px">
+          <button class="btn sm ${snap.NetMode === 'always' ? 'primary' : ''}" onclick="window._setClientOp('${h.id}','setNetworkMode','always')">Always</button>
+          <button class="btn sm ${snap.NetMode === 'auto' ? 'primary' : ''}" onclick="window._setClientOp('${h.id}','setNetworkMode','auto')">Auto</button>
+          <button class="btn sm ${snap.NetMode === 'never' ? 'primary' : ''}" onclick="window._setClientOp('${h.id}','setNetworkMode','never')">Never</button>
+          <span class="faint" style="font-size:12px">Network mode</span>
+        </div>
+        <button class="btn sm" onclick="window._setClientOp('${h.id}','benchmarks','')">Run Benchmarks</button>
       </div>
     `
   }
@@ -651,7 +743,18 @@ function renderSettings() {
         </div>
       </div>
     </div>
+    ${prefsCards ? `<div class="section-title"><h2>Preferences</h2></div><div style="display:flex;flex-direction:column;gap:14px">${prefsCards}</div>` : ''}
     ${hwCards ? `<div class="section-title"><h2>Hardware</h2></div><div class="cards-grid">${hwCards}</div>` : ''}
+    <div class="card">
+      <div class="card-head"><h2 class="card-title">Notifications</h2></div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="faint" style="font-size:12px">Status: <span class="num">${esc(notifPermission)}</span></div>
+        <div class="row" style="gap:8px">
+          <button class="btn sm" onclick="window._requestNotifPermission()">Enable Desktop Notifications</button>
+          <button class="btn sm" onclick="window._testNotif()">Send Test</button>
+        </div>
+      </div>
+    </div>
     <div class="card">
       <div class="card-head"><h2 class="card-title">About</h2></div>
       <div style="color:var(--text-soft)">
@@ -672,6 +775,31 @@ function fmtFlops(v) {
   return f.toFixed(0) + ' FLOPS'
 }
 
+function checkNotifications() {
+  if (notifPermission !== 'granted') return
+  for (const [hid, snap] of Object.entries(state.snaps)) {
+    const prev = prevSnaps[hid]
+    const host = state.hosts.find(h => h.id === hid)
+    const name = host?.name || hid
+    if (!prev) continue
+    if (snap.Online && !prev.online) {
+      new Notification('LavandeGrid', { body: `${name} is back online` })
+    }
+    if (!snap.Online && prev.online) {
+      new Notification('LavandeGrid', { body: `${name} went offline` })
+    }
+    const errs = snap.Totals?.Errors || 0
+    const perrs = prev.errors || 0
+    if (errs > perrs) {
+      new Notification('LavandeGrid', { body: `${name}: ${errs - perrs} task(s) errored` })
+    }
+  }
+  prevSnaps = {}
+  for (const [hid, snap] of Object.entries(state.snaps)) {
+    prevSnaps[hid] = { online: snap.Online, errors: snap.Totals?.Errors || 0 }
+  }
+}
+
 window._setPage = setPage
 
 window._toggleTheme = () => {
@@ -681,8 +809,56 @@ window._toggleTheme = () => {
   render()
 }
 
-function applyTheme() {
-  document.documentElement.setAttribute('data-theme', state.theme)
+window._setFilter = (status) => {
+  state.filterStatus = status
+  render()
+}
+
+window._searchTasks = (q) => {
+  state.searchQuery = q
+  const c = $('#content')
+  if (c && state.page === 'tasks') c.innerHTML = renderTasks()
+}
+
+window._taskOp = async (hostId, name, op) => {
+  try {
+    await api('TaskOp', hostId, name, op)
+    toast(`Task ${op}ed`, 'ok')
+    await refreshHosts()
+  } catch (e) {
+    toast(e.message || 'Operation failed', 'err')
+  }
+}
+
+window._projectOp = async (hostId, url, op) => {
+  if (op === 'detach' && !confirm('Detach from this project?')) return
+  try {
+    await api('ProjectOp', hostId, url, op)
+    toast(`Project ${op} completed`, 'ok')
+    await refreshHosts()
+  } catch (e) {
+    toast(e.message || 'Operation failed', 'err')
+  }
+}
+
+window._transferOp = async (hostId, name, op) => {
+  try {
+    await api('TransferOp', hostId, name, op)
+    toast(`Transfer ${op}ed`, 'ok')
+    await refreshHosts()
+  } catch (e) {
+    toast(e.message || 'Operation failed', 'err')
+  }
+}
+
+window._setClientOp = async (hostId, op, mode) => {
+  try {
+    await api('ClientOp', hostId, op, mode)
+    toast(`${op} updated`, 'ok')
+    await refreshHosts()
+  } catch (e) {
+    toast(e.message || 'Operation failed', 'err')
+  }
 }
 
 window._removeHost = async (id) => {
@@ -691,6 +867,17 @@ window._removeHost = async (id) => {
   delete state.snaps[id]
   await refreshHosts()
   toast('Server removed', 'ok')
+}
+
+window._testHost = async (id) => {
+  const h = state.hosts.find(h => h.id === id)
+  if (!h) return
+  try {
+    const ver = await api('TestHost', h.host, h.port, h.password)
+    toast(`Connected: v${ver}`, 'ok')
+  } catch (e) {
+    toast(e.message || 'Connection failed', 'err')
+  }
 }
 
 window._showAddHost = () => {
@@ -712,6 +899,89 @@ window._showAddHost = () => {
   render()
 }
 
+window._showEditHost = (id) => {
+  const h = state.hosts.find(h => h.id === id)
+  if (!h) return
+  state.modal = `
+    <div class="modal-overlay" onclick="if(event.target===this)window._closeModal()">
+      <div class="modal" style="max-width:420px">
+        <div class="modal-head"><h3>Edit Server</h3><button class="btn icon" onclick="window._closeModal()">✕</button></div>
+        <div class="field"><label class="label">Name</label><input class="input" id="edit-name" value="${jsq(h.name)}"></div>
+        <div class="field"><label class="label">Host</label><input class="input" id="edit-host" value="${jsq(h.host)}"></div>
+        <div class="field"><label class="label">Port</label><input class="input num" id="edit-port" value="${h.port}"></div>
+        <div class="field"><label class="label">Password</label><input class="input" id="edit-pass" type="password" value="${jsq(h.password)}" placeholder="gui_rpc_auth.cfg password"></div>
+        <div class="modal-foot">
+          <button class="btn" onclick="window._closeModal()">Cancel</button>
+          <button class="btn primary" onclick="window._doEditHost('${h.id}')">Save</button>
+        </div>
+      </div>
+    </div>
+  `
+  render()
+}
+
+window._showAttachProject = () => {
+  const hostOpts = state.hosts.filter(h => !h.demo).map(h => `<option value="${h.id}">${esc(h.name)}</option>`).join('')
+  state.modal = `
+    <div class="modal-overlay" onclick="if(event.target===this)window._closeModal()">
+      <div class="modal" style="max-width:500px">
+        <div class="modal-head"><h3>Attach Project</h3><button class="btn icon" onclick="window._closeModal()">✕</button></div>
+        <div class="field"><label class="label">Target Server</label><select class="select" id="attach-host">${hostOpts}</select></div>
+        <div class="field"><label class="label">Project URL</label><input class="input" id="attach-url" placeholder="https://einsteinathome.org"></div>
+        <div class="field"><label class="label">Authenticator</label><input class="input" id="attach-auth" placeholder="From account lookup"></div>
+        <div class="field"><label class="label">Display Name (optional)</label><input class="input" id="attach-name" placeholder="Custom name"></div>
+        <div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:13px">
+          <div class="faint" style="font-size:11px;margin-bottom:8px">Account Lookup</div>
+          <div class="field"><label class="label">Project URL</label><input class="input" id="lookup-url" placeholder="https://einsteinathome.org"></div>
+          <div class="field"><label class="label">Email</label><input class="input" id="lookup-email" type="email" placeholder="your@email.com"></div>
+          <div class="field"><label class="label">Password</label><input class="input" id="lookup-pass" type="password" placeholder="Account password"></div>
+          <button class="btn sm" onclick="window._doLookup()">Look Up Authenticator</button>
+          <div id="lookup-result" class="faint" style="font-size:11px;margin-top:6px"></div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn" onclick="window._closeModal()">Cancel</button>
+          <button class="btn primary" onclick="window._doAttach()">Attach</button>
+        </div>
+      </div>
+    </div>
+  `
+  render()
+}
+
+window._doLookup = async () => {
+  const url = $('#lookup-url')?.value || ''
+  const email = $('#lookup-email')?.value || ''
+  const pass = $('#lookup-pass')?.value || ''
+  const result = $('#lookup-result')
+  if (!url || !email || !pass) { if (result) result.textContent = 'Fill in all fields'; return }
+  try {
+    const auth = await api('LookupAccount', url, email, pass)
+    if (result) result.innerHTML = `<span style="color:var(--ok)">Found! <span class="num" style="user-select:all">${jsq(auth)}</span></span>`
+    const authField = $('#attach-auth')
+    if (authField) authField.value = auth
+    const urlField = $('#attach-url')
+    if (urlField && !urlField.value) urlField.value = url
+  } catch (e) {
+    if (result) result.innerHTML = `<span style="color:var(--err)">${esc(e.message || 'Not found')}</span>`
+  }
+}
+
+window._doAttach = async () => {
+  const hostId = $('#attach-host')?.value
+  const url = $('#attach-url')?.value
+  const auth = $('#attach-auth')?.value
+  const name = $('#attach-name')?.value || ''
+  if (!hostId || !url || !auth) { toast('Fill in all required fields', 'err'); return }
+  try {
+    await api('Attach', hostId, url, auth, name)
+    state.modal = null
+    await refreshHosts()
+    toast('Project attached', 'ok')
+  } catch (e) {
+    toast(e.message || 'Attach failed', 'err')
+  }
+}
+
 window._closeModal = () => { state.modal = null; render() }
 
 window._doAddHost = async () => {
@@ -726,6 +996,21 @@ window._doAddHost = async () => {
     toast('Server added', 'ok')
   } catch (e) {
     toast(e.message || 'Failed to add server', 'err')
+  }
+}
+
+window._doEditHost = async (id) => {
+  const name = $('#edit-name')?.value || 'Unnamed'
+  const host = $('#edit-host')?.value || 'localhost'
+  const port = parseInt($('#edit-port')?.value) || 31416
+  const pass = $('#edit-pass')?.value || ''
+  try {
+    await api('UpdateHost', id, name, host, port, pass)
+    state.modal = null
+    await refreshHosts()
+    toast('Server updated', 'ok')
+  } catch (e) {
+    toast(e.message || 'Failed to update server', 'err')
   }
 }
 
@@ -751,9 +1036,41 @@ window._stopDaemon = async () => {
   }
 }
 
+window._requestNotifPermission = async () => {
+  if (!('Notification' in window)) { toast('Notifications not supported', 'err'); return }
+  const perm = await Notification.requestPermission()
+  notifPermission = perm
+  render()
+  if (perm === 'granted') toast('Notifications enabled', 'ok')
+  else toast('Notifications denied', 'info')
+}
+
+window._testNotif = () => {
+  if (notifPermission === 'granted') {
+    new Notification('LavandeGrid', { body: 'Notifications are working' })
+  } else {
+    toast('Enable notifications first', 'info')
+  }
+}
+
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', state.theme)
+}
+
 async function init() {
   applyTheme()
+  if ('Notification' in window) notifPermission = Notification.permission
   render()
+  if (window.runtime?.EventsOn) {
+    window.runtime.EventsOn('notice', (n) => {
+      const kind = n?.Kind || ''
+      const body = n?.Body || 'Task notice'
+      const title = n?.Title || 'LavandeGrid'
+      if (kind === 'deadline' || kind === 'error') toast(body, 'err')
+      else if (kind === 'offline') toast(body, 'info')
+      if (notifPermission === 'granted') new Notification(title, { body })
+    })
+  }
   try {
     state.daemonStatus = await api('GetDaemonStatus')
     state.daemonInfo = await api('DetectDaemon')

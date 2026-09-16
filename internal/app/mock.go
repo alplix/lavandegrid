@@ -223,16 +223,12 @@ func (m *Mock) Snapshot() *Snapshot {
 			continue
 		}
 		t.progress += t.rate
-		t.t.Progress = t.progress
-		t.t.Elapsed += 4
-		t.t.CPUTime += 3.8
-		t.t.CPTime = t.t.CPUTime * 0.94
-		t.t.ETA = (1 - t.progress) / t.rate
 		if t.progress >= 1 {
 			t.progress = 0
 			t.t.Status = StatusReady
 			t.t.Ready = true
 			t.t.Active = false
+			t.t.Progress = 1
 			mt := t
 			go func() {
 				time.Sleep(6 * time.Second)
@@ -243,6 +239,11 @@ func (m *Mock) Snapshot() *Snapshot {
 				mt.t.Active = true
 			}()
 		}
+		t.t.Progress = t.progress
+		t.t.Elapsed += 4
+		t.t.CPUTime += 3.8
+		t.t.CPTime = t.t.CPUTime * 0.94
+		t.t.ETA = (1 - t.progress) / t.rate
 	}
 	for _, tr := range m.transfers {
 		if tr.tr.Finished || tr.tr.Paused {
@@ -257,6 +258,47 @@ func (m *Mock) Snapshot() *Snapshot {
 			tr.tr.Finished = true
 		}
 	}
+
+	for _, mp := range m.projects {
+		st.Projects = append(st.Projects, boinc.Project{
+			Name: mp.info.Name, MasterURL: mp.info.URL, Venue: mp.info.Venue,
+			UserName: mp.info.UserName, TeamName: mp.info.TeamName,
+			UserTotalCredit: boinc.Num(mp.info.UserCredit), UserExpavgCredit: boinc.Num(mp.info.RAC),
+			HostTotalCredit: boinc.Num(mp.info.HostCredit), HostExpavgCredit: boinc.Num(mp.info.HostRAC),
+			ResourceShare: boinc.Num(mp.info.Share),
+			SuspendedViaGUI: boolNum(mp.info.Suspended),
+			DontRequestMoreWork: boolNum(mp.info.NoMoreWork),
+			SchedRPCPending: boolNum(mp.info.Pending),
+			Ended: boolNum(mp.info.Ended),
+		})
+	}
+
+	for _, mt := range m.tasks {
+		t := mt.t
+		var active, suspended, ready boinc.Num
+		switch t.Status {
+		case StatusRunning:
+			active = boinc.Num(1)
+		case StatusPaused:
+			active = boinc.Num(1)
+			suspended = boinc.Num(1)
+		case StatusReady:
+			ready = boinc.Num(1)
+		}
+		st.Results = append(st.Results, boinc.Result{
+			Name: t.Name, WuName: t.Wu, ProjectURL: t.URL,
+			ExitStatus: boolErr(t.Status), FractionDone: boinc.Num(t.Progress),
+			ElapsedTime: boinc.Num(t.Elapsed), CurrentCPUTime: boinc.Num(t.CPUTime),
+			CheckpointCPUTime: boinc.Num(t.CPTime),
+			EstimatedCPUTimeRemaining: boinc.Num(t.ETA),
+			ReportDeadline: boinc.Num(float64(t.Deadline)),
+			WorkingSetSize: boinc.Num(float64(t.Mem)),
+			Resources: t.Resources,
+			ActiveTask: active, SuspendedViaGUI: suspended, ReadyToReport: ready,
+			Slot: boinc.Num(float64(t.Slot)), VersionNum: boinc.Num(0),
+		})
+	}
+
 	var fts []boinc.FileTransfer
 	for _, tr := range m.transfers {
 		fts = append(fts, boinc.FileTransfer{
@@ -268,16 +310,17 @@ func (m *Mock) Snapshot() *Snapshot {
 	}
 	cc := &boinc.CcStatus{TaskMode: modeNum(m.runMode), NetworkMode: modeNum(m.netMode)}
 	snap := Normalize(m.cfg.ID, true, st, fts, cc, m.msgs, m.version)
-	for i := range snap.Tasks {
-		snap.Tasks[i].Progress = m.tasks[i].progress
-		snap.Tasks[i].ETA = (1 - snap.Tasks[i].Progress) / m.tasks[i].rate
-		snap.Tasks[i].Elapsed = m.tasks[i].t.Elapsed
-		snap.Tasks[i].CPUTime = m.tasks[i].t.CPUTime
-	}
 	for i := range snap.Projects {
 		snap.Projects[i].Pending = m.projects[i].pending
 	}
 	return snap
+}
+
+func boolErr(status TaskStatus) boinc.Num {
+	if status == StatusError {
+		return boinc.Num(1)
+	}
+	return boinc.Num(0)
 }
 
 func boolNum(b bool) boinc.Num {

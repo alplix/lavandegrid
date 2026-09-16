@@ -6,7 +6,7 @@ LavandeGrid connects to BOINC clients over GUI RPC and lets you monitor and cont
 all of them from a single native desktop app. A built-in demo mode lets you explore
 the full interface without any real clients.
 
-Built with Go + [Fyne](https://fyne.io). No browser, no Electron.
+Built with Go + [Wails](https://wails.io). No browser, no Electron.
 
 ## Features
 
@@ -26,7 +26,6 @@ Built with Go + [Fyne](https://fyne.io). No browser, no Electron.
 | Windows | amd64 | bundled installer in release |
 | macOS | amd64, arm64 | bundled installer in release |
 | Linux | amd64, arm64 | use system client (`boinc` / `boinc_client`) |
-| FreeBSD | amd64 | use system client |
 
 The app detects a local BOINC client automatically (bundled copy first, then the
 system installation) and can start it from Settings.
@@ -44,15 +43,15 @@ system installation) and can start it from Settings.
 
 ## Building from source
 
-Requires Go 1.26+, a C compiler and OpenGL/X11 headers (see
-[Fyne docs](https://docs.fyne.io)). Then:
+Requires Go 1.26+, the [Wails CLI](https://wails.io/docs/gettingstarted/installation)
+and Node.js for the frontend. Then:
 
 ```
-go build -o lavandegrid .
+wails build
 ```
 
 Cross-compilation for all release targets is handled by
-`.github/workflows/release.yml` using [fyne-cross](https://github.com/fyne-io/fyne-cross).
+`.github/workflows/release.yml`.
 
 ## License
 
